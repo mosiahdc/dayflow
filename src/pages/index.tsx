@@ -1,62 +1,83 @@
-import { useMemo } from 'react';
-import { generateSlots } from '@/lib/intervals';
+import { useCallback } from 'react';
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import { useState } from 'react';
 import { useUIStore } from '@/store/uiStore';
+import { usePlannerStore } from '@/store/plannerStore';
+import DayView from '@/components/planner/DayView';
+import TaskLibrary from '@/components/sidebar/TaskLibrary';
+import PriorityPanel from '@/components/sidebar/PriorityPanel';
+import HabitTracker from '@/components/habits/HabitTracker';
+import DateNav from '@/components/planner/DateNav';
+import ReflectionPanel from '@/components/planner/ReflectionPanel';
+import type { DragData, Task, ScheduledTask } from '@/types';
 
-export default function DayView() {
-    const { selectedDate } = useUIStore();
-    const slots = useMemo(
-        () => generateSlots(new Date(selectedDate)),
-        [selectedDate]
-    );
+function DragPreview({ data }: { data: DragData }) {
+  const task: Task | undefined = data.type === 'library-task'
+    ? data.task
+    : data.scheduledTask?.task;
+  if (!task) return null;
+  return (
+    <div
+      className="rounded border-l-4 px-3 py-2 text-xs shadow-xl bg-white dark:bg-gray-700 w-48 opacity-95"
+      style={{ borderLeftColor: task.color, backgroundColor: `${task.color}18` }}
+    >
+      <p className="font-semibold text-brand-dark dark:text-white truncate">{task.title}</p>
+      <p className="text-brand-muted">{task.durationMins}m · {task.category}</p>
+    </div>
+  );
+}
 
-    return (
-        <div className="max-w-screen-xl mx-auto">
-            <h2 className="text-lg font-bold mb-3 text-brand-dark dark:text-white">
-                📅 {selectedDate}
-            </h2>
+export default function DayPage() {
+  const { selectedDate } = useUIStore();
+  const { scheduledTasks, addTask, updateSlot } = usePlannerStore();
+  const [activeDragData, setActiveDragData] = useState<DragData | null>(null);
 
-            {/* Row 1 */}
-            <div className="flex gap-4 mb-4">
-                {/* Planner grid */}
-                <div className="w-[58%] bg-white dark:bg-gray-800 rounded-lg shadow border overflow-hidden">
-                    <div className="bg-brand-accent text-white px-4 py-2 font-semibold text-sm">
-                        Daily Planner
-                    </div>
-                    <div className="overflow-y-auto max-h-[500px]">
-                        {slots.map((slot) => (
-                            <div
-                                key={slot.index}
-                                className="flex items-center border-b border-brand-border hover:bg-brand-bg dark:hover:bg-gray-700 min-h-[40px]"
-                            >
-                                <span className="w-14 text-xs text-brand-muted px-2 shrink-0">
-                                    {slot.label}
-                                </span>
-                                <div className="flex-1 px-2 py-1" />
-                            </div>
-                        ))}
-                    </div>
-                </div>
+  const onDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragData(event.active.data.current as DragData);
+  }, []);
 
-                {/* Priority panel */}
-                <div className="w-[40%] bg-white dark:bg-gray-800 rounded-lg shadow border overflow-hidden">
-                    <div className="bg-brand-accent2 text-white px-4 py-2 font-semibold text-sm">
-                        Priority / This Week
-                    </div>
-                    <div className="p-3 text-sm text-brand-muted">
-                        Tasks will appear here…
-                    </div>
-                </div>
-            </div>
+  const onDragEnd = useCallback(async (event: DragEndEvent) => {
+    setActiveDragData(null);
+    const { active, over } = event;
+    if (!over) return;
+    const data    = active.data.current as DragData;
+    const slotStr = over.id.toString().replace('slot-', '');
+    const slot    = parseInt(slotStr, 10);
+    if (isNaN(slot)) return;
+    if (data.type === 'library-task' && data.task) {
+      await addTask(data.task.id, selectedDate, slot);
+    } else if (data.type === 'scheduled-task' && data.scheduledTask) {
+      await updateSlot(data.scheduledTask.id, slot, selectedDate);
+    }
+  }, [selectedDate, addTask, updateSlot]);
 
-            {/* Row 2 — Habit Tracker */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow border overflow-hidden">
-                <div className="bg-brand-green text-white px-4 py-2 font-semibold text-sm">
-                    ✅ Habit Tracker
-                </div>
-                <div className="p-3 text-sm text-brand-muted">
-                    Habits will appear here…
-                </div>
-            </div>
+  return (
+    <DndContext collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <div className="max-w-screen-xl mx-auto flex gap-4">
+        {/* Sidebar */}
+        <div className="w-64 shrink-0" style={{ height: 'calc(100vh - 80px)' }}>
+          <TaskLibrary />
         </div>
-    );
+
+        {/* Main */}
+        <div className="flex-1 flex flex-col gap-4">
+          <DateNav />
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <DayView date={selectedDate} scheduledTasks={scheduledTasks} />
+            </div>
+            <div className="w-72 shrink-0 flex flex-col gap-4">
+              <PriorityPanel />
+              <ReflectionPanel date={selectedDate} />
+            </div>
+          </div>
+          <HabitTracker />
+        </div>
+      </div>
+
+      <DragOverlay dropAnimation={null}>
+        {activeDragData && <DragPreview data={activeDragData} />}
+      </DragOverlay>
+    </DndContext>
+  );
 }

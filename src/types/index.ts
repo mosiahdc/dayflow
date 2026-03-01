@@ -1,4 +1,8 @@
+// ── Enums & Primitives ────────────────────────────────────────────────────────
 export type Category = 'work' | 'personal' | 'health' | 'learning';
+
+export type DayOfWeek =
+    | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
 export type RecurringPattern =
     | { type: 'none' }
@@ -6,10 +10,18 @@ export type RecurringPattern =
     | { type: 'weekly'; days: DayOfWeek[] }
     | { type: 'weekdays' };
 
-export type DayOfWeek = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
-
 export type TimerMode = 'countdown' | 'pomodoro';
 export type TimerState = 'idle' | 'running' | 'paused' | 'done';
+export type View = 'day' | 'week' | 'month';
+export type Priority = 'high' | 'medium' | 'low';
+
+// ── Category color map ────────────────────────────────────────────────────────
+export const CATEGORY_COLORS: Record<Category, string> = {
+    work: '#4F6EF7',
+    personal: '#7C3AED',
+    health: '#10B981',
+    learning: '#F59E0B',
+};
 
 // ── Task prototype — lives in the library ─────────────────────────────────────
 export interface Task {
@@ -19,12 +31,12 @@ export interface Task {
     color: string;
     category: Category;
     durationMins: number;
-    notes?: string;
+    notes?: string | undefined;
     recurring: RecurringPattern;
     createdAt: string;
 }
 
-// ── Scheduled instance — placed on a day ──────────────────────────────────────
+// ── Scheduled instance — placed on a specific day ─────────────────────────────
 export interface ScheduledTask {
     id: string;
     taskId: string;
@@ -33,7 +45,7 @@ export interface ScheduledTask {
     date: string;
     startSlot: number;
     done: boolean;
-    timerStartedAt?: string;
+    timerStartedAt?: string | undefined;
     createdAt: string;
 }
 
@@ -45,7 +57,7 @@ export interface TimeSlot {
     minute: number;
 }
 
-// ── Habit prototype ───────────────────────────────────────────────────────────
+// ── Habit ─────────────────────────────────────────────────────────────────────
 export interface Habit {
     id: string;
     userId: string;
@@ -56,14 +68,14 @@ export interface Habit {
     createdAt: string;
 }
 
-// ── Daily habit completion ────────────────────────────────────────────────────
+// ── Habit entry — one per habit per day ───────────────────────────────────────
 export interface HabitEntry {
     id: string;
     habitId: string;
     userId: string;
     date: string;
     completed: boolean;
-    completedAt?: string;
+    completedAt?: string | undefined;
 }
 
 // ── Day template ──────────────────────────────────────────────────────────────
@@ -86,31 +98,19 @@ export interface Reflection {
 }
 
 // ── Priority item ─────────────────────────────────────────────────────────────
-export type PriorityLevel = 'high' | 'medium' | 'low';
-
 export interface PriorityItem {
     id: string;
     userId: string;
     title: string;
-    priority: PriorityLevel;
+    priority: Priority;
     done: boolean;
     dueDate?: string;
     createdAt: string;
 }
 
-// ── Audit log ─────────────────────────────────────────────────────────────────
-export interface AuditEntry {
-    id: string;
-    userId: string;
-    action: string;
-    metadata?: Record<string, unknown>;
-    createdAt: string;
+// ── Drag and drop data ────────────────────────────────────────────────────────
+export interface DragData {
+    type: 'library-task' | 'scheduled-task';
+    task?: Task;
+    scheduledTask?: ScheduledTask;
 }
-
-// ── Category color map ────────────────────────────────────────────────────────
-export const CATEGORY_COLORS: Record<Category, string> = {
-    work: '#4F6EF7',
-    personal: '#7C3AED',
-    health: '#10B981',
-    learning: '#F59E0B',
-};

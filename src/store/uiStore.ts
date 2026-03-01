@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
-
-type View = 'day' | 'week' | 'month';
+import type { View } from '@/types';
 
 interface UIStore {
     activeView: View;
@@ -26,7 +25,6 @@ export const useUIStore = create<UIStore>()(
             activeMonth: format(new Date(), 'yyyy-MM'),
             timerTaskId: null,
             isDarkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
-
             setView: (activeView) => set({ activeView }),
             setDate: (selectedDate) => set({ selectedDate }),
             setTimerTask: (timerTaskId) => set({ timerTaskId }),
