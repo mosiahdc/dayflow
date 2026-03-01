@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brand-bg text-brand-dark dark:bg-brand-dark dark:text-white;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  * {
+    @apply border-brand-border;
+  }
+}
