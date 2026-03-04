@@ -3,10 +3,11 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { generateSlots } from '@/lib/intervals';
 import TimeSlot from './TimeSlot';
 import ExportMenu from './ExportMenu';
+import TemplateMenu from './TemplateMenu';
 import type { ScheduledTask } from '@/types';
 
 interface Props {
-  date:           string;
+  date: string;
   scheduledTasks: ScheduledTask[];
 }
 
@@ -14,18 +15,21 @@ export default function DayView({ date, scheduledTasks }: Props) {
   const { fetchByDate, removeTask, toggleDone } = usePlannerStore();
   const slots = useMemo(() => generateSlots(new Date(date)), [date]);
 
-  useEffect(() => { fetchByDate(date); }, [date, fetchByDate]);
+  useEffect(() => {
+    fetchByDate(date);
+  }, [date, fetchByDate]);
 
-  const tasksForSlot = useCallback((slotIndex: number) =>
-    scheduledTasks.filter((st) => st.date === date && st.startSlot === slotIndex),
-  [scheduledTasks, date]);
+  const tasksForSlot = useCallback(
+    (slotIndex: number) =>
+      scheduledTasks.filter((st) => st.date === date && st.startSlot === slotIndex),
+    [scheduledTasks, date]
+  );
 
-  const done  = scheduledTasks.filter((t) => t.date === date && t.done).length;
+  const done = scheduledTasks.filter((t) => t.date === date && t.done).length;
   const total = scheduledTasks.filter((t) => t.date === date).length;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden flex flex-col">
-      {/* Header */}
       <div className="bg-brand-accent text-white px-4 py-2 flex justify-between items-center">
         <span className="font-semibold text-sm">📅 Daily Planner</span>
         <div className="flex items-center gap-2">
@@ -34,11 +38,11 @@ export default function DayView({ date, scheduledTasks }: Props) {
               {done}/{total} done
             </span>
           )}
+          <TemplateMenu date={date} />
           <ExportMenu date={date} />
         </div>
       </div>
 
-      {/* Progress bar */}
       {total > 0 && (
         <div className="h-1 bg-gray-100 dark:bg-gray-700">
           <div
@@ -48,7 +52,6 @@ export default function DayView({ date, scheduledTasks }: Props) {
         </div>
       )}
 
-      {/* Grid */}
       <div className="overflow-y-auto" style={{ maxHeight: '520px' }}>
         {slots.map((slot) => (
           <TimeSlot

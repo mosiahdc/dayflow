@@ -12,8 +12,9 @@ export type RecurringPattern =
 
 export type TimerMode = 'countdown' | 'pomodoro';
 export type TimerState = 'idle' | 'running' | 'paused' | 'done';
-export type View = 'day' | 'week' | 'month';
+export type View = 'day' | 'week' | 'month' | 'analytics';
 export type Priority = 'high' | 'medium' | 'low';
+
 
 // ── Category color map ────────────────────────────────────────────────────────
 export const CATEGORY_COLORS: Record<Category, string> = {
