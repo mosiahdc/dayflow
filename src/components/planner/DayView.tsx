@@ -30,19 +30,24 @@ export default function DayView({ date, scheduledTasks }: Props) {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden flex flex-col">
-      <div className="bg-brand-accent text-white px-4 py-2 flex justify-between items-center">
-        <span className="font-semibold text-sm">📅 Daily Planner</span>
-        <div className="flex items-center gap-2">
+
+      {/* Header — stacks on mobile */}
+      <div className="bg-brand-accent text-white px-3 py-2 flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-sm">📅 Daily Planner</span>
           {total > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium">
               {done}/{total} done
             </span>
           )}
+        </div>
+        <div className="flex gap-2">
           <TemplateMenu date={date} />
           <ExportMenu date={date} />
         </div>
       </div>
 
+      {/* Progress bar */}
       {total > 0 && (
         <div className="h-1 bg-gray-100 dark:bg-gray-700">
           <div
@@ -52,6 +57,7 @@ export default function DayView({ date, scheduledTasks }: Props) {
         </div>
       )}
 
+      {/* Grid */}
       <div className="overflow-y-auto" style={{ maxHeight: '520px' }}>
         {slots.map((slot) => (
           <TimeSlot

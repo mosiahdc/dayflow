@@ -41,19 +41,29 @@ export default function App() {
 
   if (!session) return <Auth />;
 
-  return (
-    <div className="min-h-screen bg-brand-bg dark:bg-brand-dark">
-      <nav className="bg-brand-dark text-white px-3 py-2 flex items-center justify-between gap-2">
-        <span className="font-bold text-lg shrink-0">DayFlow</span>
+  const navItems = [
+    { view: 'day',       label: 'Day',      icon: '📅' },
+    { view: 'week',      label: 'Week',     icon: '📆' },
+    { view: 'month',     label: 'Month',    icon: '🗓' },
+    { view: 'analytics', label: 'Stats',    icon: '📊' },
+  ] as const;
 
-        <div className="flex gap-1 overflow-x-auto scrollbar-none flex-1 justify-center">
-          {(['day', 'week', 'month', 'analytics'] as const).map((v) => (
+  return (
+    <div
+      className="min-h-screen bg-brand-bg dark:bg-brand-dark flex flex-col"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      {/* Top bar — desktop only */}
+      <nav className="bg-brand-dark text-white px-3 py-2 hidden md:flex items-center justify-between gap-2">
+        <span className="font-bold text-base shrink-0">DayFlow</span>
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none flex-1 justify-center">
+          {navItems.map(({ view, label }) => (
             <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`px-2.5 py-1 rounded text-xs sm:text-sm capitalize transition-colors whitespace-nowrap ${activeView === v ? 'bg-brand-accent' : 'bg-gray-700 hover:bg-gray-600'}`}
+              key={view}
+              onClick={() => setView(view)}
+              className={`px-3 py-1.5 rounded text-sm font-medium capitalize transition-colors whitespace-nowrap ${activeView === view ? 'bg-brand-accent' : 'bg-gray-700 hover:bg-gray-600'}`}
             >
-              {v === 'analytics' ? '📊' : v}
+              {label}
             </button>
           ))}
           {needRefresh[0] && (
@@ -61,30 +71,68 @@ export default function App() {
               onClick={() => updateServiceWorker(true)}
               className="text-xs bg-brand-green px-2 py-1 rounded text-white whitespace-nowrap"
             >
-              Update available
+              Update
             </button>
           )}
         </div>
-
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={toggleDark} className="text-sm text-gray-400 hover:text-white">
+          <button onClick={toggleDark} className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center">
             {isDarkMode ? '☀️' : '🌙'}
           </button>
           <button
             onClick={() => supabase.auth.signOut()}
-            className="text-xs text-gray-400 hover:text-white hidden sm:block"
+            className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
+            title="Sign out"
           >
-            Sign out
+            🚪
           </button>
         </div>
       </nav>
 
-      <main className="p-4">
-        {activeView === 'day' && <DayPage />}
-        {activeView === 'week' && <WeekPage />}
-        {activeView === 'month' && <MonthPage />}
+      {/* Mobile top bar */}
+      <div className="bg-brand-dark text-white px-3 py-2 flex md:hidden items-center justify-between">
+        <span className="font-bold text-base">DayFlow</span>
+        <div className="flex items-center gap-2">
+          <button onClick={toggleDark} className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center">
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center"
+          >
+            🚪
+          </button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <main
+        className="flex-1 p-3 overflow-y-auto"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)' }}
+      >
+        {activeView === 'day'       && <DayPage />}
+        {activeView === 'week'      && <WeekPage />}
+        {activeView === 'month'     && <MonthPage />}
         {activeView === 'analytics' && <AnalyticsPage />}
       </main>
+
+      {/* Bottom nav — mobile only */}
+      <div
+        className="fixed bottom-0 left-0 right-0 bg-brand-dark md:hidden z-40 flex border-t border-gray-700"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {navItems.map(({ view, label, icon }) => (
+          <button
+            key={view}
+            onClick={() => setView(view)}
+            className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors
+              ${activeView === view ? 'text-brand-accent' : 'text-gray-400'}`}
+          >
+            <span className="text-xl">{icon}</span>
+            <span className="text-xs font-medium">{label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

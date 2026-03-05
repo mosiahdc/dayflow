@@ -52,21 +52,21 @@ export default function ExportMenu({ date }: Props) {
     </div>
   );
 
-  if (!dayTasks.length) return null;
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-white"
-      >
-        📤 Export
-      </button>
+return (
+  <div className="relative">
+    <button
+      onClick={() => setOpen(!open)}
+      className="text-xs bg-white/20 hover:bg-white/30 px-2.5 py-1.5 rounded-lg text-white font-medium opacity-50 disabled:cursor-not-allowed"
+      disabled={dayTasks.length === 0}
+      title={dayTasks.length === 0 ? 'No tasks to export' : 'Export tasks'}
+    >
+      📤 Export
+    </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-8 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 w-52 overflow-hidden">
+          <div className="absolute left-0 top-8 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 w-52 overflow-hidden">
             <p className="text-xs text-brand-muted px-3 py-2 border-b dark:border-gray-700">
               {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''} on {date}
             </p>

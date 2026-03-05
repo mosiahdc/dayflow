@@ -6,17 +6,17 @@ export default function DateNav() {
   const date = new Date(selectedDate);
 
   return (
-    <div className="flex items-center gap-2 mb-3">
+    <div className="flex items-center gap-2 mb-1 w-full">
       <button
         onClick={() => setDate(format(subDays(date, 1), 'yyyy-MM-dd'))}
-        className="px-3 py-1.5 rounded-lg border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
+        className="w-11 h-11 shrink-0 rounded-xl border dark:border-gray-600 dark:text-white flex items-center justify-center text-lg font-bold hover:border-brand-accent transition-colors"
       >
         ←
       </button>
 
       <button
         onClick={() => setDate(format(new Date(), 'yyyy-MM-dd'))}
-        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors
+        className={`px-4 h-11 shrink-0 rounded-xl text-sm font-semibold transition-colors
           ${isToday(date)
             ? 'bg-brand-accent text-white'
             : 'border dark:border-gray-600 dark:text-white hover:border-brand-accent'}`}
@@ -24,13 +24,13 @@ export default function DateNav() {
         Today
       </button>
 
-      <span className="font-semibold text-sm dark:text-white flex-1 text-center">
-        {format(date, 'EEEE, MMMM d yyyy')}
+      <span className="font-semibold text-sm dark:text-white flex-1 text-center truncate">
+        {format(date, 'EEE, MMM d yyyy')}
       </span>
 
       <button
         onClick={() => setDate(format(addDays(date, 1), 'yyyy-MM-dd'))}
-        className="px-3 py-1.5 rounded-lg border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
+        className="w-11 h-11 shrink-0 rounded-xl border dark:border-gray-600 dark:text-white flex items-center justify-center text-lg font-bold hover:border-brand-accent transition-colors"
       >
         →
       </button>
