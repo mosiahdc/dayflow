@@ -1,5 +1,11 @@
 import { useCallback, useState } from 'react';
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  pointerWithin,
+} from '@dnd-kit/core';
 import { useUIStore } from '@/store/uiStore';
 import { usePlannerStore } from '@/store/plannerStore';
 import { useRecurring } from '@/hooks/useRecurring';
@@ -22,7 +28,9 @@ function DragPreview({ data }: { data: DragData }) {
       style={{ borderLeftColor: task.color, backgroundColor: `${task.color}18` }}
     >
       <p className="font-semibold text-brand-dark dark:text-white truncate">{task.title}</p>
-      <p className="text-brand-muted">{task.durationMins}m · {task.category}</p>
+      <p className="text-brand-muted">
+        {task.durationMins}m · {task.category}
+      </p>
     </div>
   );
 }
@@ -60,7 +68,6 @@ export default function DayPage() {
   return (
     <DndContext collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="max-w-screen-xl mx-auto flex gap-4 relative">
-
         {/* Mobile floating 📚 button — sits above bottom nav */}
         <button
           onClick={toggleSidebar}
@@ -89,31 +96,37 @@ export default function DayPage() {
               onClick={() => setSidebar(false)}
             />
             <div
-              className="fixed md:relative top-0 left-0 z-20 md:z-auto w-72 md:w-64 shrink-0"
+              className="fixed md:relative top-0 left-0 z-20 md:z-auto w-72 md:w-64 shrink-0 flex flex-col"
               style={{
                 height: '100%',
                 paddingTop: 'env(safe-area-inset-top)',
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)',
               }}
             >
+              {/* Spacer to align TaskLibrary top with DayView (DateNav height + gap) */}
+              <div className="hidden md:block shrink-0" style={{ height: '60px' }} />
               <TaskLibrary />
             </div>
           </>
         )}
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
-          <DateNav />
+        <div className="flex-1 flex flex-col gap-4 min-w-0">
           <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1 min-w-0">
+            {/* Left: DateNav + DayView + HabitTracker stacked */}
+            <div className="flex-1 min-w-0 flex flex-col gap-4">
+              <DateNav />
               <DayView date={selectedDate} scheduledTasks={scheduledTasks} />
+              <HabitTracker />
             </div>
+
+            {/* Right: spacer + Priority + Reflection — spacer matches DateNav height */}
             <div className="lg:w-72 shrink-0 flex flex-col gap-4">
+              <div className="hidden lg:block shrink-0" style={{ height: '60px' }} />
               <PriorityPanel />
               <ReflectionPanel date={selectedDate} />
             </div>
           </div>
-          <HabitTracker />
         </div>
       </div>
 

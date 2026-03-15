@@ -7,11 +7,33 @@ const DEFAULT_CATEGORIES: string[] = ['work', 'personal', 'health', 'learning'];
 const DEFAULT_COLORS: Record<string, string> = { ...CATEGORY_COLORS };
 const PRESET_DURATIONS = [30, 60, 90, 120, 180, 240, 300, 360, 420, 480];
 const DAYS: DayOfWeek[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-
 const EXTRA_COLORS = [
-  '#EC4899', '#F97316', '#EAB308', '#84CC16',
-  '#06B6D4', '#8B5CF6', '#14B8A6', '#F43F5E',
+  '#EC4899',
+  '#F97316',
+  '#EAB308',
+  '#84CC16',
+  '#06B6D4',
+  '#8B5CF6',
+  '#14B8A6',
+  '#F43F5E',
 ];
+
+const CAT_STORAGE_KEY = 'dayflow-custom-categories';
+
+// Load persisted custom categories from localStorage
+function loadSavedCategories(): { categories: string[]; colorMap: Record<string, string> } {
+  try {
+    const saved = localStorage.getItem(CAT_STORAGE_KEY);
+    if (!saved) return { categories: DEFAULT_CATEGORIES, colorMap: { ...DEFAULT_COLORS } };
+    const parsed = JSON.parse(saved) as { categories: string[]; colorMap: Record<string, string> };
+    return {
+      categories: parsed.categories ?? DEFAULT_CATEGORIES,
+      colorMap: { ...DEFAULT_COLORS, ...(parsed.colorMap ?? {}) },
+    };
+  } catch {
+    return { categories: DEFAULT_CATEGORIES, colorMap: { ...DEFAULT_COLORS } };
+  }
+}
 
 interface Props {
   onClose: () => void;
@@ -22,6 +44,8 @@ interface Props {
 export default function TaskForm({ onClose, editing, onSave }: Props) {
   const { addTask, updateTask } = useTaskStore();
 
+  const saved = loadSavedCategories();
+
   const [title, setTitle] = useState(editing?.title ?? '');
   const [category, setCategory] = useState<string>(editing?.category ?? 'work');
   const [durationMins, setDurationMins] = useState(editing?.durationMins ?? 30);
@@ -29,8 +53,9 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
-  const [colorMap, setColorMap] = useState<Record<string, string>>(DEFAULT_COLORS);
+  // Category state — loaded from localStorage so custom ones persist
+  const [categories, setCategories] = useState<string[]>(saved.categories);
+  const [colorMap, setColorMap] = useState<Record<string, string>>(saved.colorMap);
   const [showCatInput, setShowCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState(EXTRA_COLORS[0] ?? '#EC4899');
@@ -48,27 +73,45 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
 
   const activeColor = colorMap[category] ?? '#4F6EF7';
 
-  const addCategory = () => {
+  const saveCustomCategories = (cats: string[], map: Record<string, string>) => {
+    // Only persist the non-default ones (or all — both work fine)
+    localStorage.setItem(CAT_STORAGE_KEY, JSON.stringify({ categories: cats, colorMap: map }));
+  };
+
+  const addNewCategory = () => {
     const name = newCatName.trim().toLowerCase();
     if (!name) return;
     if (categories.includes(name)) {
+      setCategory(name);
       setNewCatName('');
       setShowCatInput(false);
       return;
     }
-    setCategories((p) => [...p, name]);
-    setColorMap((p) => ({ ...p, [name]: newCatColor }));
+    const newCats = [...categories, name];
+    const newMap = { ...colorMap, [name]: newCatColor };
+    setCategories(newCats);
+    setColorMap(newMap);
     setCategory(name);
     setNewCatName('');
     setShowCatInput(false);
+    saveCustomCategories(newCats, newMap);
   };
 
   const handleCustomDur = (val: string) => {
     setCustomDurInput(val);
     const n = parseInt(val, 10);
-    if (!val) { setDurError(''); return; }
-    if (isNaN(n) || n <= 0) { setDurError('Must be a positive number'); return; }
-    if (n > 1440) { setDurError('Max 1440 minutes (24h)'); return; }
+    if (!val) {
+      setDurError('');
+      return;
+    }
+    if (isNaN(n) || n <= 0) {
+      setDurError('Must be a positive number');
+      return;
+    }
+    if (n > 1440) {
+      setDurError('Max 1440 minutes (24h)');
+      return;
+    }
     const rounded = Math.round(n / 30) * 30;
     const clamped = Math.max(30, Math.min(1440, rounded));
     setDurError('');
@@ -76,8 +119,14 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
   };
 
   const save = async () => {
-    if (!title.trim()) { setError('Title is required'); return; }
-    if (durationMins < 30 || durationMins > 1440) { setError('Invalid duration'); return; }
+    if (!title.trim()) {
+      setError('Title is required');
+      return;
+    }
+    if (durationMins < 30 || durationMins > 1440) {
+      setError('Invalid duration');
+      return;
+    }
     if (useCustomDur && durError) return;
 
     setLoading(true);
@@ -143,6 +192,7 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
           onKeyDown={(e) => e.key === 'Enter' && save()}
         />
 
+        {/* Category */}
         <label className="text-xs text-brand-muted mb-1 block">Category</label>
         <div className="flex flex-wrap gap-1.5 mb-2">
           {categories.map((c) => (
@@ -175,7 +225,7 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
               placeholder="Category name…"
               value={newCatName}
               onChange={(e) => setNewCatName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+              onKeyDown={(e) => e.key === 'Enter' && addNewCategory()}
             />
             <div>
               <p className="text-xs text-brand-muted mb-1">Pick color</p>
@@ -198,7 +248,7 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
                 Cancel
               </button>
               <button
-                onClick={addCategory}
+                onClick={addNewCategory}
                 className="flex-1 bg-brand-accent text-white rounded py-1 text-xs font-semibold"
               >
                 Add
@@ -207,6 +257,7 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
           </div>
         )}
 
+        {/* Duration */}
         <label className="text-xs text-brand-muted mb-1 block">Duration</label>
         <div className="flex gap-2 mb-2">
           <button
@@ -229,7 +280,12 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
               <button
                 key={d}
                 onClick={() => setDurationMins(d)}
-                className={`py-1.5 rounded text-xs font-semibold border-2 transition-all ${durationMins === d ? 'bg-brand-accent text-white border-brand-accent' : 'dark:text-white dark:border-gray-600 border-gray-200 hover:border-brand-accent'}`}
+                className={`py-1.5 rounded text-xs font-semibold border-2 transition-all
+                  ${
+                    durationMins === d
+                      ? 'bg-brand-accent text-white border-brand-accent'
+                      : 'dark:text-white dark:border-gray-600 border-gray-200 hover:border-brand-accent'
+                  }`}
               >
                 {d >= 60 ? `${d / 60}h` : `${d}m`}
               </button>
@@ -252,26 +308,30 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
             {durError ? (
               <p className="text-red-500 text-xs mt-1">{durError}</p>
             ) : customDurInput ? (
-              <p className="text-brand-green text-xs mt-1">
-                Rounded to {durationMins}m ({Math.floor(durationMins / 60) > 0 ? `${Math.floor(durationMins / 60)}h ` : ''}{durationMins % 60 > 0 ? `${durationMins % 60}m` : ''})
-              </p>
+              <p className="text-brand-green text-xs mt-1">Rounded to {durationMins}m</p>
             ) : (
               <p className="text-brand-muted text-xs mt-1">
-                Enter any minutes — auto-rounded to nearest 30. Max 1440 (24h).
+                Enter any minutes — auto-rounded to nearest 30.
               </p>
             )}
           </div>
         )}
 
+        {/* Repeat */}
         <label className="text-xs text-brand-muted mb-1 block">Repeat</label>
         <div className="flex gap-1.5 mb-3 flex-wrap">
           {(['none', 'daily', 'weekdays', 'weekly'] as const).map((type) => (
             <button
               key={type}
               onClick={() => setRecurring(type === 'weekly' ? { type, days: recurDays } : { type })}
-              className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize border-2 transition-all ${recurring.type === type ? 'bg-brand-accent text-white border-brand-accent' : 'dark:text-white dark:border-gray-600 border-gray-200'}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize border-2 transition-all
+                ${
+                  recurring.type === type
+                    ? 'bg-brand-accent text-white border-brand-accent'
+                    : 'dark:text-white dark:border-gray-600 border-gray-200'
+                }`}
             >
-              {type === 'none' ? 'No repeat' : type}
+              {type === 'none' ? 'No Repeat' : type.charAt(0).toUpperCase() + type.slice(1)}
             </button>
           ))}
         </div>
@@ -288,7 +348,8 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
                   setRecurDays(next);
                   setRecurring({ type: 'weekly', days: next });
                 }}
-                className={`flex-1 py-1 rounded text-xs font-semibold uppercase transition-all ${recurDays.includes(d) ? 'bg-brand-accent text-white' : 'bg-gray-100 dark:bg-gray-700 text-brand-muted'}`}
+                className={`flex-1 py-1 rounded text-xs font-semibold uppercase transition-all
+                  ${recurDays.includes(d) ? 'bg-brand-accent text-white' : 'bg-gray-100 dark:bg-gray-700 text-brand-muted'}`}
               >
                 {d[0]}
               </button>
@@ -296,6 +357,7 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
           </div>
         )}
 
+        {/* Notes */}
         <label className="text-xs text-brand-muted mb-1 block">Notes (optional)</label>
         <textarea
           className="w-full border rounded-lg px-3 py-2 mb-4 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
@@ -305,6 +367,7 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
           onChange={(e) => setNotes(e.target.value)}
         />
 
+        {/* Color preview */}
         <div className="flex items-center gap-2 mb-4">
           <div className="w-4 h-4 rounded-full" style={{ backgroundColor: activeColor }} />
           <span className="text-xs text-brand-muted capitalize">{category}</span>
