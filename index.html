@@ -8,6 +8,15 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Polyfill Notification API for Android WebView -->
+    <script>
+      if (typeof Notification === "undefined") {
+        window.Notification = {
+          permission: "denied",
+          requestPermission: async () => "denied",
+        };
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

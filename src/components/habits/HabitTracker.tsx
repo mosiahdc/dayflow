@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { format, startOfWeek, addDays } from 'date-fns';
+import { format, startOfWeek, addDays, subDays } from 'date-fns';
 import {
   DndContext,
   closestCenter,
@@ -25,13 +25,21 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 interface HabitRowProps {
   habit: Habit;
-  entries: HabitEntry[];
+  entries: HabitEntry[]; // current week entries for checkbox display
+  allEntries: HabitEntry[]; // all historical entries for streak
   dates: { date: string; day: DayOfWeek; label: string }[];
   onToggle: (habitId: string, date: string) => void;
   onDelete: (id: string) => void;
 }
 
-function SortableHabitRow({ habit, entries, dates, onToggle, onDelete }: HabitRowProps) {
+function SortableHabitRow({
+  habit,
+  entries,
+  allEntries,
+  dates,
+  onToggle,
+  onDelete,
+}: HabitRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: habit.id,
   });
@@ -42,11 +50,36 @@ function SortableHabitRow({ habit, entries, dates, onToggle, onDelete }: HabitRo
   };
 
   const streak = (() => {
+    // Walk backwards day by day from today, skipping non-target days,
+    // counting consecutive completed target days across any number of weeks.
+    const DAY_KEYS: DayOfWeek[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     let count = 0;
-    for (const { date } of [...dates].reverse()) {
-      const entry = entries.find((e) => e.habitId === habit.id && e.date === date);
-      if (entry?.completed) count++;
-      else break;
+    let current = new Date(today);
+
+    // Look back up to 365 days to find the streak
+    for (let i = 0; i < 365; i++) {
+      const dayKey = DAY_KEYS[current.getDay()] as DayOfWeek;
+      const dateStr = format(current, 'yyyy-MM-dd');
+
+      if (habit.targetDays.includes(dayKey)) {
+        // This is a target day — must be completed to continue streak
+        const entry = allEntries.find(
+          (e) => e.habitId === habit.id && e.date === dateStr && e.completed
+        );
+        if (entry) {
+          count++;
+        } else if (dateStr < format(today, 'yyyy-MM-dd')) {
+          // Past target day not completed — streak broken
+          break;
+        }
+        // If it's today and not yet completed, don't break — streak still alive
+      }
+      // Non-target day: just skip, doesn't break streak
+
+      current = subDays(current, 1);
     }
     return count;
   })();
@@ -55,7 +88,7 @@ function SortableHabitRow({ habit, entries, dates, onToggle, onDelete }: HabitRo
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 px-3 py-2 border-b dark:border-gray-700
+      className={`flex items-center gap-2 px-3 py-2 pr-4 border-b dark:border-gray-700 min-w-[520px]
         hover:bg-gray-50 dark:hover:bg-gray-700/30
         ${isDragging ? 'opacity-40 bg-white dark:bg-gray-800 z-50' : ''}`}
     >
@@ -125,7 +158,16 @@ function SortableHabitRow({ habit, entries, dates, onToggle, onDelete }: HabitRo
 
 export default function HabitTracker() {
   const { selectedDate } = useUIStore();
-  const { habits, entries, fetchHabits, fetchEntries, toggleEntry, deleteHabit } = useHabitStore();
+  const {
+    habits,
+    entries,
+    weekEntries,
+    fetchHabits,
+    fetchEntries,
+    fetchAllEntries,
+    toggleEntry,
+    deleteHabit,
+  } = useHabitStore();
   const [ordered, setOrdered] = useState<Habit[]>([]);
   const [showForm, setShowForm] = useState(false);
 
@@ -152,6 +194,9 @@ export default function HabitTracker() {
   useEffect(() => {
     fetchHabits();
   }, [fetchHabits]);
+  useEffect(() => {
+    fetchAllEntries();
+  }, [fetchAllEntries]);
   useEffect(() => {
     fetchEntries(weekDates.map((d) => d.date));
   }, [selectedDate]);
@@ -203,49 +248,60 @@ export default function HabitTracker() {
         </button>
       </div>
 
-      {/* Day headers */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-        <div className="w-5 shrink-0" /> {/* drag handle space */}
-        <div className="w-36 shrink-0" />
-        <div className="flex gap-2 flex-1 justify-center">
-          {weekDates.map(({ date, label }) => {
-            const isToday = date === format(new Date(), 'yyyy-MM-dd');
-            return (
-              <div
-                key={date}
-                className={`w-7 text-center text-xs font-semibold
-                ${isToday ? 'text-brand-accent' : 'text-brand-muted'}`}
-              >
-                {label}
-              </div>
-            );
-          })}
+      {/* Scrollable table area */}
+      <div className="overflow-x-auto">
+        {/* Day headers */}
+        <div className="flex items-center gap-2 px-3 py-1.5 pr-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 min-w-[520px]">
+          <div className="w-5 shrink-0" /> {/* drag handle space */}
+          <div className="w-36 shrink-0" />
+          <div className="flex gap-2 flex-1 justify-center">
+            {weekDates.map(({ date, label }) => {
+              const isToday = date === format(new Date(), 'yyyy-MM-dd');
+              return (
+                <div
+                  key={date}
+                  className={`w-7 text-center text-xs font-semibold
+                  ${isToday ? 'text-brand-accent' : 'text-brand-muted'}`}
+                >
+                  {label}
+                </div>
+              );
+            })}
+          </div>
+          <div className="w-14 text-center text-xs font-semibold text-brand-muted shrink-0">
+            Streak
+          </div>
+          <div className="w-4 shrink-0" />
         </div>
-        <div className="w-14 text-center text-xs font-semibold text-brand-muted shrink-0">
-          Streak
-        </div>
-        <div className="w-4 shrink-0" />
-      </div>
 
-      {/* Sortable habit rows */}
-      {ordered.length === 0 ? (
-        <p className="text-xs text-brand-muted text-center py-6">No habits yet. Add one!</p>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={ordered.map((h) => h.id)} strategy={verticalListSortingStrategy}>
-            {ordered.map((habit) => (
-              <SortableHabitRow
-                key={habit.id}
-                habit={habit}
-                entries={entries}
-                dates={weekDates}
-                onToggle={toggleEntry}
-                onDelete={deleteHabit}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
-      )}
+        {/* Sortable habit rows */}
+        {ordered.length === 0 ? (
+          <p className="text-xs text-brand-muted text-center py-6">No habits yet. Add one!</p>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={ordered.map((h) => h.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {ordered.map((habit) => (
+                <SortableHabitRow
+                  key={habit.id}
+                  habit={habit}
+                  entries={weekEntries}
+                  allEntries={entries}
+                  dates={weekDates}
+                  onToggle={toggleEntry}
+                  onDelete={deleteHabit}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        )}
+      </div>
 
       {showForm && <HabitForm onClose={() => setShowForm(false)} />}
     </div>

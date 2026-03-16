@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { format, subDays } from 'date-fns';
 import { usePlannerStore } from '@/store/plannerStore';
 import { generateSlots } from '@/lib/intervals';
@@ -95,6 +95,26 @@ export default function DayView({ date, scheduledTasks }: Props) {
     fetchByDate(yesterday);
   }, [yesterday, fetchByDate]);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll: if viewing today, scroll to 1 hour before current time.
+  // If viewing any other date, scroll to top.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    if (date === today) {
+      const now = new Date();
+      const currentSlot = now.getHours() * 2 + Math.floor(now.getMinutes() / 30);
+      // Show 2 slots (1 hour) before current time, minimum slot 0
+      const targetSlot = Math.max(0, currentSlot - 2);
+      const slotHeight = 40; // min-h-[40px] per slot
+      el.scrollTop = targetSlot * slotHeight;
+    } else {
+      el.scrollTop = 0;
+    }
+  }, [date]);
+
   // Today's tasks
   const dayTasks = useMemo(
     () => scheduledTasks.filter((st) => st.date === date),
@@ -169,7 +189,7 @@ export default function DayView({ date, scheduledTasks }: Props) {
         </div>
       )}
 
-      <div className="overflow-y-auto" style={{ maxHeight: '520px' }}>
+      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '520px' }}>
         {slots.map((slot) => (
           <TimeSlot
             key={slot.index}

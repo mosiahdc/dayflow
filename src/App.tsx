@@ -7,6 +7,9 @@ import DayPage from '@/pages/index';
 import WeekPage from '@/pages/week';
 import MonthPage from '@/pages/month';
 import AnalyticsPage from '@/pages/analytics';
+import HabitsPage from '@/pages/habits';
+import FastingPage from '@/pages/fasting';
+import SettingsPage from '@/pages/settings';
 import type { Session } from '@supabase/supabase-js';
 
 export default function App() {
@@ -41,11 +44,25 @@ export default function App() {
 
   if (!session) return <Auth />;
 
-  const navItems = [
-    { view: 'day',       label: 'Day',      icon: '📅' },
-    { view: 'week',      label: 'Week',     icon: '📆' },
-    { view: 'month',     label: 'Month',    icon: '🗓' },
-    { view: 'analytics', label: 'Stats',    icon: '📊' },
+  // Desktop nav — all tabs
+  const desktopTabs = [
+    { view: 'day', label: 'Day' },
+    { view: 'week', label: 'Week' },
+    { view: 'month', label: 'Month' },
+    { view: 'analytics', label: '📊' },
+    { view: 'habits', label: 'Habits' },
+    { view: 'fasting', label: '🕐 Fast' },
+    { view: 'settings', label: '⚙️' },
+  ] as const;
+
+  // Mobile bottom nav — primary tabs only
+  const mobileTabs = [
+    { view: 'day', label: 'Day', icon: '📅' },
+    { view: 'week', label: 'Week', icon: '📆' },
+    { view: 'month', label: 'Month', icon: '🗓' },
+    { view: 'habits', label: 'Habits', icon: '✅' },
+    { view: 'fasting', label: 'Fast', icon: '🕐' },
+    { view: 'settings', label: 'Settings', icon: '⚙️' },
   ] as const;
 
   return (
@@ -53,15 +70,17 @@ export default function App() {
       className="min-h-screen bg-brand-bg dark:bg-brand-dark flex flex-col"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Top bar — desktop only */}
+      {/* ── Desktop top nav ── */}
       <nav className="bg-brand-dark text-white px-3 py-2 hidden md:flex items-center justify-between gap-2">
         <span className="font-bold text-base shrink-0">DayFlow</span>
+
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none flex-1 justify-center">
-          {navItems.map(({ view, label }) => (
+          {desktopTabs.map(({ view, label }) => (
             <button
               key={view}
               onClick={() => setView(view)}
-              className={`px-3 py-1.5 rounded text-sm font-medium capitalize transition-colors whitespace-nowrap ${activeView === view ? 'bg-brand-accent' : 'bg-gray-700 hover:bg-gray-600'}`}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap
+                ${activeView === view ? 'bg-brand-accent' : 'bg-gray-700 hover:bg-gray-600'}`}
             >
               {label}
             </button>
@@ -75,8 +94,12 @@ export default function App() {
             </button>
           )}
         </div>
+
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={toggleDark} className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center">
+          <button
+            onClick={toggleDark}
+            className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
+          >
             {isDarkMode ? '☀️' : '🌙'}
           </button>
           <button
@@ -89,11 +112,22 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Mobile top bar */}
+      {/* ── Mobile top bar ── */}
       <div className="bg-brand-dark text-white px-3 py-2 flex md:hidden items-center justify-between">
         <span className="font-bold text-base">DayFlow</span>
         <div className="flex items-center gap-2">
-          <button onClick={toggleDark} className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center">
+          {/* Analytics on mobile — only in top bar since it won't fit bottom nav */}
+          <button
+            onClick={() => setView('analytics')}
+            className={`text-sm px-2 py-1 rounded transition-colors
+              ${activeView === 'analytics' ? 'bg-brand-accent text-white' : 'text-gray-400'}`}
+          >
+            📊
+          </button>
+          <button
+            onClick={toggleDark}
+            className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center"
+          >
             {isDarkMode ? '☀️' : '🌙'}
           </button>
           <button
@@ -105,23 +139,26 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main content */}
+      {/* ── Main content ── */}
       <main
         className="flex-1 p-3 overflow-y-auto"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)' }}
       >
-        {activeView === 'day'       && <DayPage />}
-        {activeView === 'week'      && <WeekPage />}
-        {activeView === 'month'     && <MonthPage />}
+        {activeView === 'day' && <DayPage />}
+        {activeView === 'week' && <WeekPage />}
+        {activeView === 'month' && <MonthPage />}
         {activeView === 'analytics' && <AnalyticsPage />}
+        {activeView === 'habits' && <HabitsPage />}
+        {activeView === 'fasting' && <FastingPage />}
+        {activeView === 'settings' && <SettingsPage />}
       </main>
 
-      {/* Bottom nav — mobile only */}
+      {/* ── Mobile bottom nav ── */}
       <div
         className="fixed bottom-0 left-0 right-0 bg-brand-dark md:hidden z-40 flex border-t border-gray-700"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        {navItems.map(({ view, label, icon }) => (
+        {mobileTabs.map(({ view, label, icon }) => (
           <button
             key={view}
             onClick={() => setView(view)}
@@ -129,7 +166,7 @@ export default function App() {
               ${activeView === view ? 'text-brand-accent' : 'text-gray-400'}`}
           >
             <span className="text-xl">{icon}</span>
-            <span className="text-xs font-medium">{label}</span>
+            <span className="text-[10px] font-medium">{label}</span>
           </button>
         ))}
       </div>
