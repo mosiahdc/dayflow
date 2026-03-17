@@ -63,14 +63,65 @@ export function useNotifications(date: string) {
   const notifiedRef = useRef<Set<string>>(new Set());
   const permissionRequestedRef = useRef(false);
 
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
-    // Only pre-schedule on native Android/iOS
-    // On web, fall back to a simple interval-based approach
     if (!isNative) {
-      webFallback();
-      return;
+      // Request permission once
+      if (!permissionRequestedRef.current) {
+        permissionRequestedRef.current = true;
+        requestPermission().catch(console.error);
+      }
+
+      // Clear any existing interval before starting a new one
+      if (intervalRef.current) clearInterval(intervalRef.current);
+
+      const check = () => {
+        if ((window as any).Notification?.permission !== 'granted') return;
+
+        const now = new Date();
+        const todayStr = format(now, 'yyyy-MM-dd');
+        if (todayStr !== date) return;
+
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        for (const st of scheduledTasks.filter((t) => t.date === date && !t.done)) {
+          const taskMinutes = Math.floor(st.startSlot / 2) * 60 + (st.startSlot % 2 === 0 ? 0 : 30);
+          const minutesUntil = taskMinutes - currentMinutes;
+
+          const keyR = `remind-${reminderMinutes}-${st.id}`;
+          const keyN = `now-${st.id}`;
+
+          if (
+            minutesUntil <= reminderMinutes &&
+            minutesUntil > 0 &&
+            !notifiedRef.current.has(keyR)
+          ) {
+            notifiedRef.current.add(keyR);
+            new (window as any).Notification('⏰ DayFlow Reminder', {
+              body: `"${st.task.title}" starts in ${minutesUntil} minute${minutesUntil > 1 ? 's' : ''}`,
+              icon: '/pwa-192x192.png',
+            });
+          }
+
+          if (minutesUntil <= 0 && minutesUntil > -2 && !notifiedRef.current.has(keyN)) {
+            notifiedRef.current.add(keyN);
+            new (window as any).Notification('🚀 DayFlow — Starting Now', {
+              body: `"${st.task.title}" is starting now!`,
+              icon: '/pwa-192x192.png',
+            });
+          }
+        }
+      };
+
+      check();
+      intervalRef.current = setInterval(check, 30_000);
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
     }
 
+    // Native: pre-schedule all notifications
     scheduleAll().catch(console.error);
   }, [
     date,
@@ -208,53 +259,5 @@ export function useNotifications(date: string) {
     if (toSchedule.length > 0) {
       await LocalNotifications.schedule({ notifications: toSchedule });
     }
-  }
-
-  // ── Web fallback: simple interval check ───────────────────────────────
-  function webFallback() {
-    if (!isWebNotificationSupported()) return;
-
-    if (!permissionRequestedRef.current) {
-      permissionRequestedRef.current = true;
-      requestPermission().catch(console.error);
-    }
-
-    const check = () => {
-      if ((window as any).Notification?.permission !== 'granted') return;
-
-      const now = new Date();
-      const todayStr = format(now, 'yyyy-MM-dd');
-      if (todayStr !== date) return;
-
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-      for (const st of scheduledTasks.filter((t) => t.date === date && !t.done)) {
-        const taskMinutes = Math.floor(st.startSlot / 2) * 60 + (st.startSlot % 2 === 0 ? 0 : 30);
-        const minutesUntil = taskMinutes - currentMinutes;
-
-        const keyR = `remind-${reminderMinutes}-${st.id}`;
-        const keyN = `now-${st.id}`;
-
-        if (minutesUntil <= reminderMinutes && minutesUntil > 0 && !notifiedRef.current.has(keyR)) {
-          notifiedRef.current.add(keyR);
-          new (window as any).Notification('⏰ DayFlow Reminder', {
-            body: `"${st.task.title}" starts in ${minutesUntil} minute${minutesUntil > 1 ? 's' : ''}`,
-            icon: '/pwa-192x192.png',
-          });
-        }
-
-        if (minutesUntil <= 0 && minutesUntil > -2 && !notifiedRef.current.has(keyN)) {
-          notifiedRef.current.add(keyN);
-          new (window as any).Notification('🚀 DayFlow — Starting Now', {
-            body: `"${st.task.title}" is starting now!`,
-            icon: '/pwa-192x192.png',
-          });
-        }
-      }
-    };
-
-    check();
-    const interval = setInterval(check, 30_000);
-    return () => clearInterval(interval);
   }
 }
