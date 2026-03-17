@@ -123,6 +123,7 @@ export function useNotifications(date: string) {
 
     // Native: pre-schedule all notifications
     scheduleAll().catch(console.error);
+    return undefined;
   }, [
     date,
     scheduledTasks,
