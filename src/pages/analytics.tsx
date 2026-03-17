@@ -135,6 +135,7 @@ function DayInsights({
   const sorted = [...dayStats].sort((a, b) => b.avg - a.avg);
   const best = sorted[0]!;
   const worst = sorted[sorted.length - 1]!;
+  const byDow = [...dayStats].sort((a, b) => a.dow - b.dow);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4 mb-4">
@@ -153,25 +154,23 @@ function DayInsights({
       </div>
       {/* Bar chart per day of week */}
       <ResponsiveContainer width="100%" height={140}>
-        <BarChart data={dayStats.sort((a, b) => a.dow - b.dow)}>
+        <BarChart data={byDow}>
           <XAxis dataKey="name" tick={{ fontSize: 11 }} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
           <Tooltip formatter={(v: number | undefined) => `${v ?? 0}%`} />
           <Bar dataKey="avg" name="Avg Completion" radius={[4, 4, 0, 0]}>
-            {dayStats
-              .sort((a, b) => a.dow - b.dow)
-              .map((entry) => (
-                <Cell
-                  key={entry.dow}
-                  fill={
-                    entry.dow === best.dow
-                      ? '#10B981'
-                      : entry.dow === worst.dow
-                        ? '#EF4444'
-                        : '#4F6EF7'
-                  }
-                />
-              ))}
+            {byDow.map((entry) => (
+              <Cell
+                key={entry.dow}
+                fill={
+                  entry.dow === best.dow
+                    ? '#10B981'
+                    : entry.dow === worst.dow
+                      ? '#EF4444'
+                      : '#4F6EF7'
+                }
+              />
+            ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { usePlannerStore } from '@/store/plannerStore';
@@ -59,6 +59,9 @@ export function useNotifications(date: string) {
     morningReminderEnabled,
     morningReminderTime,
   } = useNotificationStore();
+
+  const notifiedRef = useRef<Set<string>>(new Set());
+  const permissionRequestedRef = useRef(false);
 
   useEffect(() => {
     // Only pre-schedule on native Android/iOS
@@ -211,9 +214,10 @@ export function useNotifications(date: string) {
   function webFallback() {
     if (!isWebNotificationSupported()) return;
 
-    requestPermission().catch(console.error);
-
-    const notified = new Set<string>();
+    if (!permissionRequestedRef.current) {
+      permissionRequestedRef.current = true;
+      requestPermission().catch(console.error);
+    }
 
     const check = () => {
       if ((window as any).Notification?.permission !== 'granted') return;
@@ -231,16 +235,16 @@ export function useNotifications(date: string) {
         const keyR = `remind-${reminderMinutes}-${st.id}`;
         const keyN = `now-${st.id}`;
 
-        if (minutesUntil <= reminderMinutes && minutesUntil > 0 && !notified.has(keyR)) {
-          notified.add(keyR);
+        if (minutesUntil <= reminderMinutes && minutesUntil > 0 && !notifiedRef.current.has(keyR)) {
+          notifiedRef.current.add(keyR);
           new (window as any).Notification('⏰ DayFlow Reminder', {
             body: `"${st.task.title}" starts in ${minutesUntil} minute${minutesUntil > 1 ? 's' : ''}`,
             icon: '/pwa-192x192.png',
           });
         }
 
-        if (minutesUntil <= 0 && minutesUntil > -2 && !notified.has(keyN)) {
-          notified.add(keyN);
+        if (minutesUntil <= 0 && minutesUntil > -2 && !notifiedRef.current.has(keyN)) {
+          notifiedRef.current.add(keyN);
           new (window as any).Notification('🚀 DayFlow — Starting Now', {
             body: `"${st.task.title}" is starting now!`,
             icon: '/pwa-192x192.png',
