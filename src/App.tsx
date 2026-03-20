@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useUIStore } from '@/store/uiStore';
+import { useHabitReminders } from '@/hooks/useHabitReminders';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import Auth from '@/components/Auth';
 import DayPage from '@/pages/index';
@@ -9,7 +10,6 @@ import MonthPage from '@/pages/month';
 import AnalyticsPage from '@/pages/analytics';
 import HabitsPage from '@/pages/habits';
 import FastingPage from '@/pages/fasting';
-import SettingsPage from '@/pages/settings';
 import type { Session } from '@supabase/supabase-js';
 
 export default function App() {
@@ -17,6 +17,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
   const { needRefresh, updateServiceWorker } = useRegisterSW();
+  useHabitReminders();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -52,7 +53,6 @@ export default function App() {
     { view: 'analytics', label: '📊' },
     { view: 'habits', label: 'Habits' },
     { view: 'fasting', label: '🕐 Fast' },
-    { view: 'settings', label: '⚙️' },
   ] as const;
 
   // Mobile bottom nav — primary tabs only
@@ -62,7 +62,6 @@ export default function App() {
     { view: 'month', label: 'Month', icon: '🗓' },
     { view: 'habits', label: 'Habits', icon: '✅' },
     { view: 'fasting', label: 'Fast', icon: '🕐' },
-    { view: 'settings', label: 'Settings', icon: '⚙️' },
   ] as const;
 
   return (
@@ -150,7 +149,6 @@ export default function App() {
         {activeView === 'analytics' && <AnalyticsPage />}
         {activeView === 'habits' && <HabitsPage />}
         {activeView === 'fasting' && <FastingPage />}
-        {activeView === 'settings' && <SettingsPage />}
       </main>
 
       {/* ── Mobile bottom nav ── */}

@@ -64,6 +64,7 @@ export interface Habit {
   category: Category;
   color: string;
   targetDays: DayOfWeek[];
+  reminderTime?: string | undefined; // "HH:MM" 24h format, optional
   createdAt: string;
 }
 
