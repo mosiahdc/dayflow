@@ -11,7 +11,15 @@ export type RecurringPattern =
 
 export type TimerMode = 'countdown' | 'pomodoro';
 export type TimerState = 'idle' | 'running' | 'paused' | 'done';
-export type View = 'day' | 'week' | 'month' | 'analytics' | 'habits' | 'fasting';
+export type View =
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'analytics'
+  | 'habits'
+  | 'fasting'
+  | 'library'
+  | 'settings';
 export type Priority = 'high' | 'medium' | 'low';
 
 // ── Category color map ────────────────────────────────────────────────────────

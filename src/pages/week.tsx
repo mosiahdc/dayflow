@@ -77,19 +77,38 @@ export default function WeekPage() {
     <DndContext collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
       <div className="max-w-screen-xl mx-auto">
         {/* Nav */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 gap-2">
           <button
             onClick={() => goWeek(-1)}
-            className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600"
+            className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
           >
             ← Prev
           </button>
-          <span className="font-semibold text-sm dark:text-white">
-            Week of {format(new Date(weekStart), 'MMM d, yyyy')}
-          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const thisWeek = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                useUIStore.getState().setDate(thisWeek);
+                useUIStore.setState({ weekStart: thisWeek });
+              }}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors
+                ${
+                  weekStart === format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                    ? 'bg-brand-accent text-white'
+                    : 'border dark:border-gray-600 dark:text-white hover:border-brand-accent'
+                }`}
+            >
+              This week
+            </button>
+            <span className="font-semibold text-sm dark:text-white hidden sm:block">
+              {format(new Date(weekStart), 'MMM d, yyyy')}
+            </span>
+          </div>
+
           <button
             onClick={() => goWeek(1)}
-            className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600"
+            className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
           >
             Next →
           </button>

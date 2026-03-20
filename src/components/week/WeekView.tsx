@@ -1,7 +1,10 @@
-import { useEffect, useMemo } from 'react';
-import { format, addDays } from 'date-fns';
+import { useEffect, useMemo, useCallback } from 'react';
+import { format, addDays, addWeeks, subWeeks } from 'date-fns';
 import { useDroppable } from '@dnd-kit/core';
 import { generateSlots } from '@/lib/intervals';
+import WeekTaskBlock from './WeekTaskBlock';
+import { useUIStore } from '@/store/uiStore';
+import { useSwipe } from '@/hooks/useSwipe';
 import type { ScheduledTask } from '@/types';
 
 interface SlotProps {
@@ -17,30 +20,9 @@ function WeekSlotCell({ id, scheduledTasks }: SlotProps) {
       className={`border-r border-b dark:border-gray-700 relative min-h-[36px] transition-colors
         ${isOver ? 'bg-brand-accent/10' : ''}`}
     >
-      {scheduledTasks.map((st, i) => {
-        const total = scheduledTasks.length;
-        const w = `${100 / total}%`;
-        // Clamp height so it doesn't overflow past midnight
-        const maxSlots = 48 - st.startSlot;
-        const spans = Math.min(st.task.durationMins / 30, maxSlots);
-        const isOverflow = st.id.startsWith('overflow-');
-        return (
-          <div
-            key={st.id}
-            className="absolute top-0.5 rounded text-xs px-1 py-0.5 truncate border-l-2 overflow-hidden"
-            style={{
-              borderLeftColor: st.task.color,
-              backgroundColor: `${st.task.color}22`,
-              borderStyle: isOverflow ? 'dashed' : 'solid',
-              height: `${spans * 36 - 2}px`,
-              width: `calc(${w} - 2px)`,
-              left: `calc(${i} * ${w})`,
-            }}
-          >
-            <span className="dark:text-white font-semibold truncate block">{st.task.title}</span>
-          </div>
-        );
-      })}
+      {scheduledTasks.map((st, i) => (
+        <WeekTaskBlock key={st.id} scheduledTask={st} index={i} total={scheduledTasks.length} />
+      ))}
     </div>
   );
 }
@@ -57,6 +39,26 @@ export default function WeekView({ weekDates, scheduledTasks, fetchByWeek }: Pro
   const start = weekDates[0]?.date ?? '';
   const end = weekDates[6]?.date ?? '';
 
+  const { setDate } = useUIStore();
+
+  const goWeek = useCallback(
+    (dir: 1 | -1) => {
+      const fn = dir === 1 ? addWeeks : subWeeks;
+      const current = start ? new Date(start) : new Date();
+      const next = format(fn(current, 1), 'yyyy-MM-dd');
+      setDate(next);
+      useUIStore.setState({ weekStart: next });
+    },
+    [start, setDate]
+  );
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => goWeek(1),
+    onSwipeRight: () => goWeek(-1),
+    threshold: 60,
+    maxVertical: 80,
+  });
+
   useEffect(() => {
     if (start && end) fetchByWeek(start, end);
   }, [start, end, fetchByWeek]);
@@ -65,10 +67,8 @@ export default function WeekView({ weekDates, scheduledTasks, fetchByWeek }: Pro
   const tasksByDate = useMemo(() => {
     const map = new Map<string, ScheduledTask[]>();
 
-    // Initialize all week dates
     for (const { date } of weekDates) map.set(date, []);
 
-    // Place regular tasks
     for (const st of scheduledTasks) {
       if (map.has(st.date)) map.get(st.date)!.push(st);
     }
@@ -78,7 +78,6 @@ export default function WeekView({ weekDates, scheduledTasks, fetchByWeek }: Pro
       const overflowSlots = st.startSlot + st.task.durationMins / 30 - 48;
       if (overflowSlots <= 0) continue;
 
-      // Find next day in our week
       const stDateIdx = weekDates.findIndex((d) => d.date === st.date);
       if (stDateIdx === -1 || stDateIdx >= weekDates.length - 1) continue;
 
@@ -122,7 +121,7 @@ export default function WeekView({ weekDates, scheduledTasks, fetchByWeek }: Pro
       </div>
 
       {/* Time grid */}
-      <div className="overflow-y-auto" style={{ maxHeight: '75vh' }}>
+      <div className="overflow-y-auto" style={{ maxHeight: '75vh' }} {...swipeHandlers}>
         {slots.map((slot) => (
           <div
             key={slot.index}

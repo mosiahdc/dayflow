@@ -2,7 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
 
-export type View = 'day' | 'week' | 'month' | 'analytics' | 'habits' | 'fasting' | 'settings';
+export type View =
+  | 'day'
+  | 'week'
+  | 'month'
+  | 'analytics'
+  | 'habits'
+  | 'fasting'
+  | 'library'
+  | 'settings';
 
 interface UIStore {
   activeView: View;

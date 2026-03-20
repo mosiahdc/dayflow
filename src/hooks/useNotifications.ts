@@ -46,6 +46,12 @@ function parseTime(time: string): { hours: number; minutes: number } {
   return { hours: h ?? 0, minutes: m ?? 0 };
 }
 
+// ── Module-level state — survives remounts when navigating between views ─────
+// If these were useRef inside the hook, they'd reset every time DayPage
+// unmounts and remounts (i.e. every tab switch), firing duplicate notifications.
+const notifiedKeys = new Set<string>();
+let permissionRequested = false;
+
 export function useNotifications(date: string) {
   const { scheduledTasks } = usePlannerStore();
   const { habits } = useHabitStore();
@@ -60,16 +66,13 @@ export function useNotifications(date: string) {
     morningReminderTime,
   } = useNotificationStore();
 
-  const notifiedRef = useRef<Set<string>>(new Set());
-  const permissionRequestedRef = useRef(false);
-
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!isNative) {
       // Request permission once
-      if (!permissionRequestedRef.current) {
-        permissionRequestedRef.current = true;
+      if (!permissionRequested) {
+        permissionRequested = true;
         requestPermission().catch(console.error);
       }
 
@@ -92,20 +95,16 @@ export function useNotifications(date: string) {
           const keyR = `remind-${reminderMinutes}-${st.id}`;
           const keyN = `now-${st.id}`;
 
-          if (
-            minutesUntil <= reminderMinutes &&
-            minutesUntil > 0 &&
-            !notifiedRef.current.has(keyR)
-          ) {
-            notifiedRef.current.add(keyR);
+          if (minutesUntil <= reminderMinutes && minutesUntil > 0 && !notifiedKeys.has(keyR)) {
+            notifiedKeys.add(keyR);
             new (window as any).Notification('⏰ DayFlow Reminder', {
               body: `"${st.task.title}" starts in ${minutesUntil} minute${minutesUntil > 1 ? 's' : ''}`,
               icon: '/pwa-192x192.png',
             });
           }
 
-          if (minutesUntil <= 0 && minutesUntil > -2 && !notifiedRef.current.has(keyN)) {
-            notifiedRef.current.add(keyN);
+          if (minutesUntil <= 0 && minutesUntil > -2 && !notifiedKeys.has(keyN)) {
+            notifiedKeys.add(keyN);
             new (window as any).Notification('🚀 DayFlow — Starting Now', {
               body: `"${st.task.title}" is starting now!`,
               icon: '/pwa-192x192.png',

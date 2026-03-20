@@ -40,6 +40,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   loading: false,
 
   fetchByDate: async (date) => {
+    set({ loading: true });
     const { data } = await supabase
       .from('scheduled_tasks')
       .select('*, task:tasks(*)')
@@ -50,6 +51,7 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
 
     // Merge: keep tasks from other dates, replace tasks for this date
     set((s) => ({
+      loading: false,
       scheduledTasks: [...s.scheduledTasks.filter((t) => t.date !== date), ...fetched],
     }));
   },

@@ -1,7 +1,28 @@
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { useTimer } from '@/hooks/useTimer';
+import { useUIStore } from '@/store/uiStore';
 import type { ScheduledTask } from '@/types';
+
+const STORAGE_KEY = 'dayflow-timer-state';
+
+interface PersistedTimer {
+  taskId: string;
+  totalSecs: number;
+  startedAt: number;
+  accruedSecs: number;
+  state: 'running' | 'paused';
+}
+
+function loadPersistedTimer(): PersistedTimer | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedTimer;
+  } catch {
+    return null;
+  }
+}
 
 interface Props {
   scheduledTask: ScheduledTask;
@@ -23,18 +44,109 @@ const TaskCard = memo(function TaskCard({
     data: { type: 'scheduled-task', scheduledTask: st },
   });
 
+  const { timerTaskId, setTimerTask } = useUIStore();
+
   const timer = useTimer(st.task.durationMins, 'countdown', () => {
     if (!st.done) onToggle(st.id);
   });
 
+  // On mount: if this card's task is the globally active timer (restored from
+  // localStorage after a refresh), sync the local timer state to match.
+  useEffect(() => {
+    if (timerTaskId !== st.id) return;
+    const saved = loadPersistedTimer();
+    if (!saved || saved.taskId !== st.id) return;
+
+    // Calculate remaining seconds the same way TimerOverlay does
+    const elapsedSinceResume =
+      saved.state === 'running' ? Math.floor((Date.now() - saved.startedAt) / 1000) : 0;
+    const totalElapsed = saved.accruedSecs + elapsedSinceResume;
+    const restoredRemaining = Math.max(0, saved.totalSecs - totalElapsed);
+
+    if (restoredRemaining <= 0) {
+      // Timer already finished — start so the card shows done state
+      timer.start();
+      return;
+    }
+
+    // Kick the local timer into the right state so the card buttons match
+    if (saved.state === 'running') {
+      timer.start();
+    } else {
+      // paused: start then immediately pause so state is 'paused'
+      timer.start();
+      // Small delay needed because start() is async (initialises worker)
+      setTimeout(() => timer.pause(), 50);
+    }
+    // Only run once on mount — deps intentionally omitted beyond the task id check
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Derive display state: if the global overlay owns this card's timer,
+  // defer to it; otherwise use the local timer state as normal.
+  const isGlobalTimer = timerTaskId === st.id;
+
+  // "isActive" drives the progress bar and countdown display
   const isActive = timer.state !== 'idle';
-  // Clamp span so task never extends past midnight (slot 47 = 11:30PM is last slot)
-  const maxSlots = 48 - st.startSlot; // slots remaining until end of day
+
+  const widthPct = 100 / totalCols;
+  const leftPct = col * widthPct;
+  const maxSlots = 48 - st.startSlot;
   const wantedRows = st.task.durationMins / 30;
   const spanRows = Math.min(wantedRows, maxSlots);
   const isCompact = spanRows === 1;
-  const widthPct = 100 / totalCols;
-  const leftPct = col * widthPct;
+
+  // When the user clicks pause/resume/stop on the card, also sync the overlay
+  const handlePause = () => {
+    timer.pause();
+    if (isGlobalTimer) {
+      // TimerOverlay will pick up the state change via its own pause handler
+      // triggered from its own useEffect watching timerTaskId — but we also
+      // need to persist the paused state here so overlay reads it correctly
+      const saved = loadPersistedTimer();
+      if (saved && saved.taskId === st.id) {
+        const elapsed = Math.floor((Date.now() - saved.startedAt) / 1000);
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            ...saved,
+            accruedSecs: saved.accruedSecs + elapsed,
+            state: 'paused',
+          } satisfies PersistedTimer)
+        );
+      }
+    }
+  };
+
+  const handleResume = () => {
+    timer.resume();
+    if (isGlobalTimer) {
+      const saved = loadPersistedTimer();
+      if (saved && saved.taskId === st.id) {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            ...saved,
+            startedAt: Date.now(),
+            state: 'running',
+          } satisfies PersistedTimer)
+        );
+      }
+    }
+  };
+
+  const handleStop = () => {
+    timer.stop();
+    if (isGlobalTimer) {
+      localStorage.removeItem(STORAGE_KEY);
+      setTimerTask(null);
+    }
+  };
+
+  const handleStart = () => {
+    timer.start();
+    setTimerTask(st.id);
+  };
 
   return (
     <div
@@ -48,11 +160,10 @@ const TaskCard = memo(function TaskCard({
         height: `${spanRows * 40 - 2}px`,
         top: '1px',
         left: `${leftPct}%`,
-        // Last column: subtract 32px for the + button space. Other columns: normal 2px gap
         width: col + 1 === totalCols ? `calc(${widthPct}% - 34px)` : `calc(${widthPct}% - 2px)`,
       }}
     >
-      {/* Timer progress bar — fills left to right */}
+      {/* Timer progress bar */}
       {isActive && (
         <div
           className="absolute inset-0 transition-all duration-1000 pointer-events-none"
@@ -65,16 +176,14 @@ const TaskCard = memo(function TaskCard({
 
       <div className="relative flex flex-col h-full px-2 py-0.5">
         {isCompact ? (
-          /* ── COMPACT (30min) — single row ── */
+          /* ── COMPACT (30min) ── */
           <div className="flex items-center gap-1 h-full">
-            {/* Timer countdown — left side when active */}
             {isActive && (
               <span className="font-mono font-bold text-brand-dark dark:text-white shrink-0">
                 {timer.display}
               </span>
             )}
 
-            {/* Drag handle = title area */}
             <span
               {...listeners}
               {...attributes}
@@ -88,7 +197,7 @@ const TaskCard = memo(function TaskCard({
             {timer.state === 'idle' && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={timer.start}
+                onClick={handleStart}
                 className="text-brand-muted hover:text-brand-accent"
                 title="Start timer"
               >
@@ -98,7 +207,7 @@ const TaskCard = memo(function TaskCard({
             {timer.state === 'running' && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={timer.pause}
+                onClick={handlePause}
                 className="text-brand-amber"
                 title="Pause"
               >
@@ -108,7 +217,7 @@ const TaskCard = memo(function TaskCard({
             {timer.state === 'paused' && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={timer.resume}
+                onClick={handleResume}
                 className="text-brand-accent"
                 title="Resume"
               >
@@ -118,7 +227,7 @@ const TaskCard = memo(function TaskCard({
             {timer.state === 'done' && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={timer.start}
+                onClick={handleStart}
                 className="text-brand-green"
                 title="Restart"
               >
@@ -128,7 +237,7 @@ const TaskCard = memo(function TaskCard({
             {isActive && (
               <button
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={timer.stop}
+                onClick={handleStop}
                 className="text-red-400"
                 title="Stop"
               >
@@ -160,9 +269,8 @@ const TaskCard = memo(function TaskCard({
             </button>
           </div>
         ) : (
-          /* ── TALL (60min+) — multi row ── */
+          /* ── TALL (60min+) ── */
           <>
-            {/* Top row — drag handle on title */}
             <div className="flex justify-between items-start gap-1">
               <span
                 {...listeners}
@@ -181,20 +289,18 @@ const TaskCard = memo(function TaskCard({
               </button>
             </div>
 
-            {/* Timer countdown */}
             {isActive && (
               <span className="font-mono font-bold text-brand-dark dark:text-white text-sm leading-none mt-0.5">
                 {timer.display}
               </span>
             )}
 
-            {/* Bottom row */}
             <div className="flex justify-between items-center mt-auto">
               <div className="flex items-center gap-1">
                 {timer.state === 'idle' && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={timer.start}
+                    onClick={handleStart}
                     className="text-brand-muted hover:text-brand-accent"
                     title="Start timer"
                   >
@@ -204,7 +310,7 @@ const TaskCard = memo(function TaskCard({
                 {timer.state === 'running' && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={timer.pause}
+                    onClick={handlePause}
                     className="text-brand-amber"
                     title="Pause"
                   >
@@ -214,7 +320,7 @@ const TaskCard = memo(function TaskCard({
                 {timer.state === 'paused' && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={timer.resume}
+                    onClick={handleResume}
                     className="text-brand-accent"
                     title="Resume"
                   >
@@ -224,7 +330,7 @@ const TaskCard = memo(function TaskCard({
                 {timer.state === 'done' && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={timer.start}
+                    onClick={handleStart}
                     className="text-brand-green"
                     title="Restart"
                   >
@@ -234,7 +340,7 @@ const TaskCard = memo(function TaskCard({
                 {isActive && (
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
-                    onClick={timer.stop}
+                    onClick={handleStop}
                     className="text-red-400"
                     title="Stop"
                   >

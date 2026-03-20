@@ -1,6 +1,8 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
-import { format, subDays } from 'date-fns';
+import { format, addDays, subDays } from 'date-fns';
 import { usePlannerStore } from '@/store/plannerStore';
+import { useUIStore } from '@/store/uiStore';
+import { useSwipe } from '@/hooks/useSwipe';
 import { generateSlots } from '@/lib/intervals';
 import TimeSlot from './TimeSlot';
 import ExportMenu from './ExportMenu';
@@ -83,6 +85,14 @@ function computeLayouts(tasks: ScheduledTask[]): Map<string, TaskLayout> {
 
 export default function DayView({ date, scheduledTasks }: Props) {
   const { fetchByDate, removeTask, toggleDone } = usePlannerStore();
+  const { setDate } = useUIStore();
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: () => setDate(format(addDays(new Date(date), 1), 'yyyy-MM-dd')),
+    onSwipeRight: () => setDate(format(subDays(new Date(date), 1), 'yyyy-MM-dd')),
+    threshold: 50,
+    maxVertical: 80,
+  });
   const slots = useMemo(() => generateSlots(new Date(date)), [date]);
 
   // Also fetch yesterday so we can detect overflow tasks
@@ -189,7 +199,12 @@ export default function DayView({ date, scheduledTasks }: Props) {
         </div>
       )}
 
-      <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: '520px' }}>
+      <div
+        ref={scrollRef}
+        className="overflow-y-auto"
+        style={{ maxHeight: '520px' }}
+        {...swipeHandlers}
+      >
         {slots.map((slot) => (
           <TimeSlot
             key={slot.index}

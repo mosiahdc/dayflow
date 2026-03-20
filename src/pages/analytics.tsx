@@ -1646,6 +1646,37 @@ function HabitDetailPage({
   );
 }
 
+// ── Empty state ────────────────────────────────────────────────────────────
+function EmptyState({
+  icon,
+  title,
+  message,
+  action,
+  onAction,
+}: {
+  icon: string;
+  title: string;
+  message: string;
+  action?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+      <div className="text-5xl mb-4 opacity-60">{icon}</div>
+      <p className="text-base font-semibold dark:text-white mb-1">{title}</p>
+      <p className="text-sm text-brand-muted max-w-xs leading-relaxed">{message}</p>
+      {action && onAction && (
+        <button
+          onClick={onAction}
+          className="mt-5 px-4 py-2 bg-brand-accent text-white rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          {action}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { scheduledTasks, fetchByWeek } = usePlannerStore();
@@ -1769,83 +1800,106 @@ export default function AnalyticsPage() {
       {/* ── Productivity tab ── */}
       {mainTab === 'productivity' && (
         <div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            {[
-              { label: 'Tasks Scheduled', value: totalScheduled, color: 'bg-brand-accent' },
-              { label: 'Tasks Completed', value: totalDone, color: 'bg-brand-green' },
-              { label: 'Hours Planned', value: `${totalHours}h`, color: 'bg-brand-accent2' },
-              { label: 'Completion Rate', value: `${overallRate}%`, color: 'bg-brand-amber' },
-            ].map((s) => (
-              <div key={s.label} className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4">
-                <div className={`w-8 h-8 rounded-lg ${s.color} mb-2`} />
-                <p className="text-2xl font-bold dark:text-white">{s.value}</p>
-                <p className="text-xs text-brand-muted">{s.label}</p>
+          {totalScheduled === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+              <EmptyState
+                icon="📅"
+                title="No tasks scheduled yet"
+                message="Head to the Day view, drag tasks from the library onto the time grid, and your productivity data will appear here."
+                action="Go to Day view"
+                onAction={() => {
+                  import('@/store/uiStore').then(({ useUIStore }) => {
+                    useUIStore.getState().setView('day');
+                  });
+                }}
+              />
+            </div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {[
+                  { label: 'Tasks Scheduled', value: totalScheduled, color: 'bg-brand-accent' },
+                  { label: 'Tasks Completed', value: totalDone, color: 'bg-brand-green' },
+                  { label: 'Hours Planned', value: `${totalHours}h`, color: 'bg-brand-accent2' },
+                  { label: 'Completion Rate', value: `${overallRate}%`, color: 'bg-brand-amber' },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4"
+                  >
+                    <div className={`w-8 h-8 rounded-lg ${s.color} mb-2`} />
+                    <p className="text-2xl font-bold dark:text-white">{s.value}</p>
+                    <p className="text-xs text-brand-muted">{s.label}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          <Heatmap tasksByDate={tasksByDate} />
-          <DayInsights tasksByDate={tasksByDate} />
+              <Heatmap tasksByDate={tasksByDate} />
+              <DayInsights tasksByDate={tasksByDate} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4">
-              <h2 className="font-semibold text-sm dark:text-white mb-3">
-                Daily Completion Rate — Last 7 Days (%)
-              </h2>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={completionData}>
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                  <Tooltip formatter={(v: number | undefined) => `${v ?? 0}%`} />
-                  <Bar dataKey="rate" fill="#4F6EF7" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4">
+                  <h2 className="font-semibold text-sm dark:text-white mb-3">
+                    Daily Completion Rate — Last 7 Days (%)
+                  </h2>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={completionData}>
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                      <Tooltip formatter={(v: number | undefined) => `${v ?? 0}%`} />
+                      <Bar dataKey="rate" fill="#4F6EF7" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4">
-              <h2 className="font-semibold text-sm dark:text-white mb-3">
-                Time by Category (hours)
-              </h2>
-              {categoryData.length === 0 ? (
-                <p className="text-xs text-brand-muted text-center mt-16">No data yet.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      dataKey="hours"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={70}
-                      label={({ name, value }: { name?: string; value?: number }) =>
-                        `${name ?? ''} ${value ?? 0}h`
-                      }
-                    >
-                      {categoryData.map((_, i: number) => (
-                        <Cell key={i} fill={COLORS[i % COLORS.length] ?? '#4F6EF7'} />
-                      ))}
-                    </Pie>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4">
+                  <h2 className="font-semibold text-sm dark:text-white mb-3">
+                    Time by Category (hours)
+                  </h2>
+                  {categoryData.length === 0 ? (
+                    <p className="text-xs text-brand-muted text-center mt-16">No data yet.</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={categoryData}
+                          dataKey="hours"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={70}
+                          label={({ name, value }: { name?: string; value?: number }) =>
+                            `${name ?? ''} ${value ?? 0}h`
+                          }
+                        >
+                          {categoryData.map((_, i: number) => (
+                            <Cell key={i} fill={COLORS[i % COLORS.length] ?? '#4F6EF7'} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4 mb-4">
+                <h2 className="font-semibold text-sm dark:text-white mb-3">
+                  Tasks Done vs Scheduled
+                </h2>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={completionData}>
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
-                  </PieChart>
+                    <Legend />
+                    <Bar dataKey="total" name="Scheduled" fill="#E2E8F0" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="done" name="Done" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
-              )}
+              </div>
             </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-4 mb-4">
-            <h2 className="font-semibold text-sm dark:text-white mb-3">Tasks Done vs Scheduled</h2>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={completionData}>
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="total" name="Scheduled" fill="#E2E8F0" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="done" name="Done" fill="#10B981" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          )}
         </div>
       )}
 
@@ -1942,9 +1996,19 @@ export default function AnalyticsPage() {
 
               if (habits.length === 0)
                 return (
-                  <p className="text-sm text-brand-muted text-center py-12">
-                    No habits yet. Add some in the Habits tab!
-                  </p>
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+                    <EmptyState
+                      icon="✅"
+                      title="No habits tracked yet"
+                      message="Add habits in the Habits tab and start checking them off daily. Your completion data and streaks will appear here."
+                      action="Go to Habits"
+                      onAction={() => {
+                        import('@/store/uiStore').then(({ useUIStore }) => {
+                          useUIStore.getState().setView('habits');
+                        });
+                      }}
+                    />
+                  </div>
                 );
 
               return (
@@ -2180,44 +2244,66 @@ export default function AnalyticsPage() {
       {/* ── Fasting tab ── */}
       {mainTab === 'fasting' && (
         <div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            <FastingStatCard
-              label="Total Fasts"
-              value={`${completedSessions.length}`}
-              sub="all time"
-            />
-            <FastingStatCard label="Total Hours" value={fmtHours(allTimeHours)} sub="all time" />
-            <FastingStatCard
-              label="Longest Fast"
-              value={longestFast > 0 ? fmtHours(longestFast) : '—'}
-              sub="single session"
-            />
-            <FastingStatCard
-              label="Goal Success"
-              value={`${fastSuccessRate}%`}
-              sub="of all fasts"
-            />
-          </div>
+          {completedSessions.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+              <EmptyState
+                icon="🕐"
+                title="No fasting sessions yet"
+                message="Start a fast in the Fasting tab. Once you complete your first session, your fasting history and trends will show here."
+                action="Go to Fasting"
+                onAction={() => {
+                  import('@/store/uiStore').then(({ useUIStore }) => {
+                    useUIStore.getState().setView('fasting');
+                  });
+                }}
+              />
+            </div>
+          ) : (
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                <FastingStatCard
+                  label="Total Fasts"
+                  value={`${completedSessions.length}`}
+                  sub="all time"
+                />
+                <FastingStatCard
+                  label="Total Hours"
+                  value={fmtHours(allTimeHours)}
+                  sub="all time"
+                />
+                <FastingStatCard
+                  label="Longest Fast"
+                  value={longestFast > 0 ? fmtHours(longestFast) : '—'}
+                  sub="single session"
+                />
+                <FastingStatCard
+                  label="Goal Success"
+                  value={`${fastSuccessRate}%`}
+                  sub="of all fasts"
+                />
+              </div>
 
-          <div className="flex gap-2 mb-4">
-            {(['weekly', 'monthly', 'yearly'] as FastingPeriod[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setFastingPeriod(p)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize
+              <div className="flex gap-2 mb-4">
+                {(['weekly', 'monthly', 'yearly'] as FastingPeriod[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setFastingPeriod(p)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize
                   ${fastingPeriod === p ? 'bg-brand-accent text-white' : 'bg-white dark:bg-gray-800 border dark:border-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
 
-          {/* Fasting heatmap — always visible */}
-          <FastingHeatmap sessions={completedSessions} />
+              {/* Fasting heatmap — always visible */}
+              <FastingHeatmap sessions={completedSessions} />
 
-          {fastingPeriod === 'weekly' && <FastingWeekly sessions={completedSessions} />}
-          {fastingPeriod === 'monthly' && <FastingMonthly sessions={completedSessions} />}
-          {fastingPeriod === 'yearly' && <FastingYearly sessions={completedSessions} />}
+              {fastingPeriod === 'weekly' && <FastingWeekly sessions={completedSessions} />}
+              {fastingPeriod === 'monthly' && <FastingMonthly sessions={completedSessions} />}
+              {fastingPeriod === 'yearly' && <FastingYearly sessions={completedSessions} />}
+            </div>
+          )}
         </div>
       )}
 

@@ -10,39 +10,18 @@ import AnalyticsPage from '@/pages/analytics';
 import HabitsPage from '@/pages/habits';
 import FastingPage from '@/pages/fasting';
 import SettingsPage from '@/pages/settings';
+import LibraryPage from '@/pages/library';
+import TimerOverlay from '@/components/planner/TimerOverlay';
+import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import type { Session } from '@supabase/supabase-js';
 
-export default function App() {
+// Inner component so hooks run only after session is confirmed
+function AuthenticatedApp() {
   const { isDarkMode, activeView, setView, toggleDark } = useUIStore();
-  const [session, setSession] = useState<Session | null>(null);
-  const [checking, setChecking] = useState(true);
   const { needRefresh, updateServiceWorker } = useRegisterSW();
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setChecking(false);
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDarkMode);
-  }, [isDarkMode]);
-
-  if (checking)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-brand-bg">
-        <p className="text-brand-muted">Loading…</p>
-      </div>
-    );
-
-  if (!session) return <Auth />;
+  // Enable live multi-device sync
+  useSupabaseRealtime();
 
   // Desktop nav — all tabs
   const desktopTabs = [
@@ -52,6 +31,7 @@ export default function App() {
     { view: 'analytics', label: '📊' },
     { view: 'habits', label: 'Habits' },
     { view: 'fasting', label: '🕐 Fast' },
+    { view: 'library', label: '📚' },
     { view: 'settings', label: '⚙️' },
   ] as const;
 
@@ -106,7 +86,6 @@ export default function App() {
       <div className="bg-brand-dark text-white px-3 py-2 flex md:hidden items-center justify-between">
         <span className="font-bold text-base">DayFlow</span>
         <div className="flex items-center gap-1">
-          {/* Analytics */}
           <button
             onClick={() => setView('analytics')}
             className={`w-8 h-8 flex items-center justify-center rounded transition-colors text-sm
@@ -114,14 +93,19 @@ export default function App() {
           >
             📊
           </button>
-          {/* Dark mode */}
+          <button
+            onClick={() => setView('library')}
+            className={`w-8 h-8 flex items-center justify-center rounded transition-colors text-sm
+              ${activeView === 'library' ? 'bg-brand-accent' : 'text-gray-400'}`}
+          >
+            📚
+          </button>
           <button
             onClick={toggleDark}
             className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center"
           >
             {isDarkMode ? '☀️' : '🌙'}
           </button>
-          {/* Settings */}
           <button
             onClick={() => setView('settings')}
             className={`text-lg w-8 h-8 flex items-center justify-center rounded transition-colors
@@ -143,6 +127,7 @@ export default function App() {
         {activeView === 'analytics' && <AnalyticsPage />}
         {activeView === 'habits' && <HabitsPage />}
         {activeView === 'fasting' && <FastingPage />}
+        {activeView === 'library' && <LibraryPage />}
         {activeView === 'settings' && <SettingsPage />}
       </main>
 
@@ -163,6 +148,43 @@ export default function App() {
           </button>
         ))}
       </div>
+
+      {/* ── Floating timer — always rendered above everything ── */}
+      <TimerOverlay />
     </div>
   );
+}
+
+export default function App() {
+  const { isDarkMode } = useUIStore();
+  const [session, setSession] = useState<Session | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setChecking(false);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
+
+  if (checking)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-brand-bg">
+        <p className="text-brand-muted">Loading…</p>
+      </div>
+    );
+
+  if (!session) return <Auth />;
+
+  return <AuthenticatedApp />;
 }

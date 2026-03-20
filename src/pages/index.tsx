@@ -15,6 +15,7 @@ import TaskLibrary from '@/components/sidebar/TaskLibrary';
 import PriorityPanel from '@/components/sidebar/PriorityPanel';
 import DateNav from '@/components/planner/DateNav';
 import ReflectionPanel from '@/components/planner/ReflectionPanel';
+import GlanceBar from '@/components/planner/GlanceBar';
 import type { DragData, Task } from '@/types';
 
 function DragPreview({ data }: { data: DragData }) {
@@ -115,6 +116,7 @@ export default function DayPage() {
             {/* Left: DateNav + DayView stacked */}
             <div className="flex-1 min-w-0 flex flex-col gap-4">
               <DateNav />
+              <GlanceBar date={selectedDate} />
               <DayView date={selectedDate} scheduledTasks={scheduledTasks} />
             </div>
 

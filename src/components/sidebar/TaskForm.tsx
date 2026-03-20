@@ -71,7 +71,18 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
     editing?.recurring.type === 'weekly' ? editing.recurring.days : []
   );
 
-  const activeColor = colorMap[category] ?? '#4F6EF7';
+  // Custom color override — when set, takes precedence over category color
+  const [customColor, setCustomColor] = useState<string>(
+    // If editing task has a color that differs from its category default, treat as custom
+    editing?.color &&
+      editing.color !==
+        (CATEGORY_COLORS[editing.category as keyof typeof CATEGORY_COLORS] ?? '#4F6EF7')
+      ? editing.color
+      : ''
+  );
+  const [showColorPicker, setShowColorPicker] = useState(!!customColor);
+
+  const activeColor = customColor || colorMap[category] || '#4F6EF7';
 
   const saveCustomCategories = (cats: string[], map: Record<string, string>) => {
     // Only persist the non-default ones (or all — both work fine)
@@ -367,10 +378,84 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
           onChange={(e) => setNotes(e.target.value)}
         />
 
-        {/* Color preview */}
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: activeColor }} />
-          <span className="text-xs text-brand-muted capitalize">{category}</span>
+        {/* Color — override or auto from category */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded-full shrink-0"
+                style={{ backgroundColor: activeColor }}
+              />
+              <span className="text-xs text-brand-muted capitalize">{category}</span>
+            </div>
+            <button
+              onClick={() => {
+                setShowColorPicker(!showColorPicker);
+                if (showColorPicker) setCustomColor('');
+              }}
+              className={`text-xs px-2 py-0.5 rounded border transition-all
+                ${
+                  showColorPicker
+                    ? 'bg-brand-accent text-white border-brand-accent'
+                    : 'text-brand-muted border-gray-300 dark:border-gray-600 hover:border-brand-accent hover:text-brand-accent'
+                }`}
+            >
+              {showColorPicker ? '✕ Reset color' : '🎨 Custom color'}
+            </button>
+          </div>
+
+          {showColorPicker && (
+            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3">
+              <p className="text-xs text-brand-muted mb-2">Pick a custom color</p>
+              <div className="flex gap-2 flex-wrap">
+                {[
+                  '#4F6EF7',
+                  '#7C3AED',
+                  '#10B981',
+                  '#F59E0B',
+                  '#EC4899',
+                  '#F97316',
+                  '#EAB308',
+                  '#84CC16',
+                  '#06B6D4',
+                  '#8B5CF6',
+                  '#14B8A6',
+                  '#F43F5E',
+                  '#EF4444',
+                  '#0EA5E9',
+                  '#A855F7',
+                  '#22C55E',
+                ].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCustomColor(c)}
+                    className={`w-7 h-7 rounded-full transition-all border-2
+                      ${customColor === c ? 'border-white scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                    style={{ backgroundColor: c }}
+                    title={c}
+                  />
+                ))}
+                {/* Native color input for any color */}
+                <label
+                  className="w-7 h-7 rounded-full border-2 border-dashed border-gray-400 dark:border-gray-500 flex items-center justify-center cursor-pointer hover:scale-105 transition-all overflow-hidden"
+                  title="Pick any color"
+                >
+                  <span className="text-xs text-gray-400">+</span>
+                  <input
+                    type="color"
+                    value={customColor || activeColor}
+                    onChange={(e) => setCustomColor(e.target.value)}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
+              {customColor && (
+                <p className="text-[10px] text-brand-muted mt-2">
+                  Custom: {customColor} — overrides category color
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {error && <p className="text-red-500 text-xs mb-3">{error}</p>}
