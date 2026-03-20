@@ -30,13 +30,7 @@ export const useUIStore = create<UIStore>()(
       timerTaskId: null,
       isDarkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
       sidebarOpen: true,
-      setView: (activeView) =>
-        set({
-          activeView,
-          ...(activeView === 'day' && { selectedDate: format(new Date(), 'yyyy-MM-dd') }),
-          ...(activeView === 'week' && { weekStart: format(new Date(), 'yyyy-MM-dd') }),
-          ...(activeView === 'month' && { activeMonth: format(new Date(), 'yyyy-MM') }),
-        }),
+      setView: (activeView) => set({ activeView }),
       setDate: (selectedDate) => set({ selectedDate }),
       setTimerTask: (timerTaskId) => set({ timerTaskId }),
       toggleDark: () => set((s) => ({ isDarkMode: !s.isDarkMode })),

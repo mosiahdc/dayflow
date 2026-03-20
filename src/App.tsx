@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useUIStore } from '@/store/uiStore';
-import { useHabitReminders } from '@/hooks/useHabitReminders';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import Auth from '@/components/Auth';
 import DayPage from '@/pages/index';
@@ -10,6 +9,7 @@ import MonthPage from '@/pages/month';
 import AnalyticsPage from '@/pages/analytics';
 import HabitsPage from '@/pages/habits';
 import FastingPage from '@/pages/fasting';
+import SettingsPage from '@/pages/settings';
 import type { Session } from '@supabase/supabase-js';
 
 export default function App() {
@@ -17,7 +17,6 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
   const { needRefresh, updateServiceWorker } = useRegisterSW();
-  useHabitReminders();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -53,9 +52,10 @@ export default function App() {
     { view: 'analytics', label: '📊' },
     { view: 'habits', label: 'Habits' },
     { view: 'fasting', label: '🕐 Fast' },
+    { view: 'settings', label: '⚙️' },
   ] as const;
 
-  // Mobile bottom nav — primary tabs only
+  // Mobile bottom nav
   const mobileTabs = [
     { view: 'day', label: 'Day', icon: '📅' },
     { view: 'week', label: 'Week', icon: '📆' },
@@ -94,46 +94,40 @@ export default function App() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={toggleDark}
-            className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
-          >
-            {isDarkMode ? '☀️' : '🌙'}
-          </button>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center"
-            title="Sign out"
-          >
-            🚪
-          </button>
-        </div>
+        <button
+          onClick={toggleDark}
+          className="text-lg text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center shrink-0"
+        >
+          {isDarkMode ? '☀️' : '🌙'}
+        </button>
       </nav>
 
       {/* ── Mobile top bar ── */}
       <div className="bg-brand-dark text-white px-3 py-2 flex md:hidden items-center justify-between">
         <span className="font-bold text-base">DayFlow</span>
-        <div className="flex items-center gap-2">
-          {/* Analytics on mobile — only in top bar since it won't fit bottom nav */}
+        <div className="flex items-center gap-1">
+          {/* Analytics */}
           <button
             onClick={() => setView('analytics')}
-            className={`text-sm px-2 py-1 rounded transition-colors
-              ${activeView === 'analytics' ? 'bg-brand-accent text-white' : 'text-gray-400'}`}
+            className={`w-8 h-8 flex items-center justify-center rounded transition-colors text-sm
+              ${activeView === 'analytics' ? 'bg-brand-accent' : 'text-gray-400'}`}
           >
             📊
           </button>
+          {/* Dark mode */}
           <button
             onClick={toggleDark}
             className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center"
           >
             {isDarkMode ? '☀️' : '🌙'}
           </button>
+          {/* Settings */}
           <button
-            onClick={() => supabase.auth.signOut()}
-            className="text-lg text-gray-400 w-8 h-8 flex items-center justify-center"
+            onClick={() => setView('settings')}
+            className={`text-lg w-8 h-8 flex items-center justify-center rounded transition-colors
+              ${activeView === 'settings' ? 'bg-brand-accent' : 'text-gray-400'}`}
           >
-            🚪
+            ⚙️
           </button>
         </div>
       </div>
@@ -149,6 +143,7 @@ export default function App() {
         {activeView === 'analytics' && <AnalyticsPage />}
         {activeView === 'habits' && <HabitsPage />}
         {activeView === 'fasting' && <FastingPage />}
+        {activeView === 'settings' && <SettingsPage />}
       </main>
 
       {/* ── Mobile bottom nav ── */}

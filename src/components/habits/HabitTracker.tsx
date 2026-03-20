@@ -83,7 +83,7 @@ function SortableHabitRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`border-b dark:border-gray-700
+      className={`border-b dark:border-gray-700 min-w-[560px]
         ${isDragging ? 'opacity-40 bg-white dark:bg-gray-800 z-50' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
     >
       {/* Main row */}
@@ -280,52 +280,64 @@ export default function HabitTracker() {
         </button>
       </div>
 
-      {/* Column headers */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-        <div className="w-5 shrink-0" />
-        <div className="w-36 shrink-0" />
-        <div className="flex gap-2 flex-1 justify-center">
-          {weekDates.map(({ date, label }) => {
-            const isToday = date === format(new Date(), 'yyyy-MM-dd');
-            return (
-              <div
-                key={date}
-                className={`w-7 text-center text-xs font-semibold
-                  ${isToday ? 'text-brand-accent' : 'text-brand-muted'}`}
-              >
-                {label}
-              </div>
-            );
-          })}
+      {/* Column headers + rows — horizontally scrollable on mobile */}
+      <div className="overflow-x-auto">
+        {/* Column headers */}
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 min-w-[560px]">
+          <div className="w-5 shrink-0" />
+          <div className="w-36 shrink-0" />
+          <div className="flex gap-2 flex-1 justify-center">
+            {weekDates.map(({ date, label }) => {
+              const isToday = date === format(new Date(), 'yyyy-MM-dd');
+              return (
+                <div
+                  key={date}
+                  className={`w-7 text-center text-xs font-semibold
+                    ${isToday ? 'text-brand-accent' : 'text-brand-muted'}`}
+                >
+                  {label}
+                </div>
+              );
+            })}
+          </div>
+          <div className="w-12 text-center text-xs font-semibold text-brand-muted shrink-0">
+            Streak
+          </div>
+          <div className="w-5 shrink-0" />
+          <div className="w-5 shrink-0" />
         </div>
-        <div className="w-12 text-center text-xs font-semibold text-brand-muted shrink-0">
-          Streak
-        </div>
-        <div className="w-4 shrink-0" />
-        <div className="w-4 shrink-0" />
-      </div>
 
-      {/* Rows */}
-      {ordered.length === 0 ? (
-        <p className="text-xs text-brand-muted text-center py-6">No habits yet. Add one!</p>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={ordered.map((h) => h.id)} strategy={verticalListSortingStrategy}>
-            {ordered.map((habit) => (
-              <SortableHabitRow
-                key={habit.id}
-                habit={habit}
-                entries={weekEntries}
-                allEntries={entries}
-                dates={weekDates}
-                onToggle={toggleEntry}
-                onDelete={deleteHabit}
-                onEdit={handleEdit}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
-      )}
+        {/* Rows */}
+        <div className="min-w-[560px]">
+          {ordered.length === 0 ? (
+            <p className="text-xs text-brand-muted text-center py-6">No habits yet. Add one!</p>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={ordered.map((h) => h.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {ordered.map((habit) => (
+                  <SortableHabitRow
+                    key={habit.id}
+                    habit={habit}
+                    entries={weekEntries}
+                    allEntries={entries}
+                    dates={weekDates}
+                    onToggle={toggleEntry}
+                    onDelete={deleteHabit}
+                    onEdit={handleEdit}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+      </div>
 
       {/* Form — handles both create and edit */}
       {showForm && (
