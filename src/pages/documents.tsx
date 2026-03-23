@@ -373,9 +373,14 @@ function InsightTab({ docs, setTab, onOpenDoc }: {
   const queue = docs.filter(d => d.status === 'queue');
   const reading = docs.filter(d => d.status === 'reading');
   const finished = docs.filter(d => d.status === 'finished');
+  // Goal progress only counts books finished in the current year
+  const finishedThisYear = finished.filter(d => {
+    const date = d.finishedAt ?? d.updatedAt ?? d.createdAt;
+    return date.startsWith(String(year));
+  });
   const totalNotes = highlights.filter(h => h.text !== '__page_note__' && h.note).length;
   const goalNum = goal?.goal ?? 12;
-  const pct = Math.min(100, Math.round((finished.length / goalNum) * 100));
+  const pct = Math.min(100, Math.round((finishedThisYear.length / goalNum) * 100));
 
   // Top authors
   const authorMap: Record<string, number> = {};
@@ -402,7 +407,7 @@ function InsightTab({ docs, setTab, onOpenDoc }: {
           <button style={btnOutline} onClick={() => setShowGoalModal(true)}>Edit Goal</button>
         </div>
         <div style={{ textAlign:'center',marginBottom:8 }}>
-          <span style={{ fontSize:36,fontWeight:500,color:'var(--df-text)' }}>{finished.length}</span>
+          <span style={{ fontSize:36,fontWeight:500,color:'var(--df-text)' }}>{finishedThisYear.length}</span>
           <span style={{ fontSize:24,color:'var(--df-muted)',margin:'0 6px' }}>/</span>
           <span style={{ fontSize:36,fontWeight:500,color:'var(--df-text)' }}>{goalNum}</span>
           <p style={{ fontSize:13,color:'var(--df-muted)',marginTop:4 }}>Books Completed</p>
