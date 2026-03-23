@@ -17,6 +17,7 @@ function HighlightCard({ highlight, onUpdateNote, onDelete, onOpen }: {
   const [editing, setEditing] = useState(false);
   const [note, setNote] = useState(highlight.note ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingModal, setEditingModal] = useState(false);
 
   const saveNote = () => {
     onUpdateNote(highlight.id, note);
@@ -110,12 +111,52 @@ function HighlightCard({ highlight, onUpdateNote, onDelete, onOpen }: {
 
         {!editing && (
           <button
-            onClick={() => setEditing(true)}
+            onClick={() => isPageNote ? setEditingModal(true) : setEditing(true)}
             className="text-[10px] px-2 py-1 rounded transition-colors"
             style={{ background: 'var(--df-surface2)', color: 'var(--df-muted)', border: '1px solid var(--df-border)', cursor: 'pointer' }}
           >
             {highlight.note ? '✏️ Edit note' : '+ Add note'}
           </button>
+        )}
+
+        {/* Modal for editing page notes */}
+        {editingModal && (
+          <div style={{ position:'fixed',inset:0,zIndex:70,background:'rgba(0,0,0,0.6)',
+            display:'flex',alignItems:'center',justifyContent:'center',padding:16 }}
+            onClick={() => setEditingModal(false)}>
+            <div style={{ background:'var(--df-surface)',borderRadius:12,padding:20,maxWidth:400,width:'100%',border:'1px solid var(--df-border)' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12 }}>
+                <p style={{ fontSize:14,fontWeight:500,color:'var(--df-text)' }}>✏️ Edit Note</p>
+                <button onClick={() => setEditingModal(false)} style={{ background:'none',border:'none',color:'var(--df-muted)',cursor:'pointer',fontSize:18 }}>✕</button>
+              </div>
+              <p style={{ fontSize:11,color:'var(--df-muted)',marginBottom:8 }}>
+                {highlight.page != null ? `Page ${highlight.page}` : ''} · {highlight.documentTitle}
+              </p>
+              <textarea
+                autoFocus
+                rows={5}
+                className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none resize-none mb-3"
+                style={{ background: 'var(--df-surface2)', border: '1px solid var(--df-border)' }}
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey||e.metaKey)) { onUpdateNote(highlight.id, note); setEditingModal(false); } }}
+              />
+              <p style={{ fontSize:11,color:'var(--df-muted)',marginBottom:12 }}>Ctrl+Enter to save</p>
+              <div style={{ display:'flex',gap:8,justifyContent:'flex-end' }}>
+                <button onClick={() => { setEditingModal(false); setNote(highlight.note ?? ''); }}
+                  className="text-xs px-3 py-1.5 rounded"
+                  style={{ background:'var(--df-surface2)',color:'var(--df-muted)',border:'1px solid var(--df-border)',cursor:'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={() => { onUpdateNote(highlight.id, note); setEditingModal(false); }}
+                  className="text-xs px-3 py-1.5 rounded text-white font-medium"
+                  style={{ background:'var(--df-accent)',border:'none',cursor:'pointer' }}>
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {confirmDelete ? (
           <>
