@@ -174,12 +174,19 @@ export default function DayView({ date, scheduledTasks }: Props) {
   const total = dayTasks.length;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden flex flex-col">
-      <div className="bg-brand-accent text-white px-3 py-2 flex flex-col gap-1.5">
+    <div
+      className="rounded-xl overflow-hidden flex flex-col"
+      style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
+    >
+      {/* Header — blue accent bar matching wireframe */}
+      <div
+        className="px-3 py-2.5 flex flex-col gap-1.5"
+        style={{ background: 'var(--df-accent)' }}
+      >
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-sm">📅 Daily Planner</span>
+          <span className="font-semibold text-sm text-white">📅 Daily Planner</span>
           {total > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium">
+            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium text-white">
               {done}/{total} done
             </span>
           )}
@@ -190,11 +197,12 @@ export default function DayView({ date, scheduledTasks }: Props) {
         </div>
       </div>
 
+      {/* Progress bar */}
       {total > 0 && (
-        <div className="h-1 bg-gray-100 dark:bg-gray-700">
+        <div className="h-0.5" style={{ background: 'var(--df-border)' }}>
           <div
-            className="h-1 bg-brand-green transition-all"
-            style={{ width: `${(done / total) * 100}%` }}
+            className="h-0.5 transition-all"
+            style={{ width: `${(done / total) * 100}%`, background: 'var(--df-green)' }}
           />
         </div>
       )}

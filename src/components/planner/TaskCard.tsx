@@ -151,12 +151,12 @@ const TaskCard = memo(function TaskCard({
   return (
     <div
       ref={setNodeRef}
-      className={`absolute rounded text-xs shadow-sm z-10 overflow-hidden flex flex-col
+      className={`absolute rounded text-xs z-10 overflow-hidden flex flex-col
         ${st.done ? 'opacity-40' : ''}
         ${isDragging ? 'opacity-30 z-50' : ''}`}
       style={{
-        borderLeft: `4px solid ${st.task.color}`,
-        backgroundColor: `${st.task.color}33`,
+        borderLeft: `3px solid ${st.task.color}`,
+        backgroundColor: `${st.task.color}22`,
         height: `${spanRows * 40 - 2}px`,
         top: '1px',
         left: `${leftPct}%`,
@@ -179,7 +179,7 @@ const TaskCard = memo(function TaskCard({
           /* ── COMPACT (30min) ── */
           <div className="flex items-center gap-1 h-full">
             {isActive && (
-              <span className="font-mono font-bold text-brand-dark dark:text-white shrink-0">
+              <span className="font-mono font-bold text-white shrink-0">
                 {timer.display}
               </span>
             )}
@@ -187,7 +187,7 @@ const TaskCard = memo(function TaskCard({
             <span
               {...listeners}
               {...attributes}
-              className={`font-semibold text-brand-dark dark:text-white truncate flex-1 cursor-grab active:cursor-grabbing
+              className={`font-semibold text-white truncate flex-1 cursor-grab active:cursor-grabbing
                 ${st.done ? 'line-through' : ''}`}
             >
               {st.task.title}
@@ -198,7 +198,7 @@ const TaskCard = memo(function TaskCard({
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={handleStart}
-                className="text-brand-muted hover:text-brand-accent"
+                className="text-gray-400 hover:text-blue-400"
                 title="Start timer"
               >
                 ⏱
@@ -218,7 +218,7 @@ const TaskCard = memo(function TaskCard({
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={handleResume}
-                className="text-brand-accent"
+                className="text-blue-400"
                 title="Resume"
               >
                 ▶
@@ -228,7 +228,7 @@ const TaskCard = memo(function TaskCard({
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={handleStart}
-                className="text-brand-green"
+                className="text-emerald-400"
                 title="Restart"
               >
                 ↺
@@ -250,7 +250,7 @@ const TaskCard = memo(function TaskCard({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => onToggle(st.id)}
               className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0
-                ${st.done ? 'bg-brand-green border-brand-green' : 'border-gray-300'}`}
+                ${st.done ? 'bg-emerald-500 border-emerald-500' : 'border-gray-600'}`}
             >
               {st.done && (
                 <span className="text-white leading-none" style={{ fontSize: 8 }}>
@@ -263,7 +263,7 @@ const TaskCard = memo(function TaskCard({
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => onRemove(st.id)}
-              className="text-gray-300 hover:text-red-400 leading-none"
+              className="text-gray-600 hover:text-red-400 leading-none"
             >
               ×
             </button>
@@ -275,7 +275,7 @@ const TaskCard = memo(function TaskCard({
               <span
                 {...listeners}
                 {...attributes}
-                className={`font-semibold text-brand-dark dark:text-white truncate leading-tight cursor-grab active:cursor-grabbing flex-1
+                className={`font-semibold text-white truncate leading-tight cursor-grab active:cursor-grabbing flex-1
                   ${st.done ? 'line-through' : ''}`}
               >
                 {st.task.title}
@@ -283,14 +283,14 @@ const TaskCard = memo(function TaskCard({
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onRemove(st.id)}
-                className="text-gray-300 hover:text-red-400 shrink-0 leading-none"
+                className="text-gray-600 hover:text-red-400 shrink-0 leading-none"
               >
                 ×
               </button>
             </div>
 
             {isActive && (
-              <span className="font-mono font-bold text-brand-dark dark:text-white text-sm leading-none mt-0.5">
+              <span className="font-mono font-bold text-white text-sm leading-none mt-0.5">
                 {timer.display}
               </span>
             )}
@@ -301,7 +301,7 @@ const TaskCard = memo(function TaskCard({
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={handleStart}
-                    className="text-brand-muted hover:text-brand-accent"
+                    className="text-gray-400 hover:text-blue-400"
                     title="Start timer"
                   >
                     ⏱
@@ -321,7 +321,7 @@ const TaskCard = memo(function TaskCard({
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={handleResume}
-                    className="text-brand-accent"
+                    className="text-blue-400"
                     title="Resume"
                   >
                     ▶
@@ -331,7 +331,7 @@ const TaskCard = memo(function TaskCard({
                   <button
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={handleStart}
-                    className="text-brand-green"
+                    className="text-emerald-400"
                     title="Restart"
                   >
                     ↺
@@ -347,7 +347,7 @@ const TaskCard = memo(function TaskCard({
                     ⏹
                   </button>
                 )}
-                {!isActive && <span className="text-brand-muted">{st.task.durationMins}m</span>}
+                {!isActive && <span className="text-gray-400">{st.task.durationMins}m</span>}
               </div>
 
               {/* Checkbox */}
@@ -355,7 +355,7 @@ const TaskCard = memo(function TaskCard({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => onToggle(st.id)}
                 className={`w-4 h-4 rounded border flex items-center justify-center shrink-0
-                  ${st.done ? 'bg-brand-green border-brand-green' : 'border-gray-300'}`}
+                  ${st.done ? 'bg-emerald-500 border-emerald-500' : 'border-gray-600'}`}
               >
                 {st.done && <span className="text-white text-xs leading-none">✓</span>}
               </button>

@@ -10,7 +10,9 @@ export type View =
   | 'habits'
   | 'fasting'
   | 'library'
-  | 'settings';
+  | 'settings'
+  | 'documents'
+  | 'notebook';
 
 interface UIStore {
   activeView: View;
@@ -20,12 +22,17 @@ interface UIStore {
   timerTaskId: string | null;
   isDarkMode: boolean;
   sidebarOpen: boolean;
+  docsNewBadge: boolean;
+  pendingDocOpen: { documentId: string; page: number | null; spineIndex: number | null } | null;
   setView: (view: View) => void;
   setDate: (date: string) => void;
   setTimerTask: (id: string | null) => void;
   toggleDark: () => void;
   toggleSidebar: () => void;
   setSidebar: (open: boolean) => void;
+  dismissDocsBadge: () => void;
+  openDocAt: (documentId: string, page: number | null, spineIndex: number | null) => void;
+  clearPendingDocOpen: () => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -38,12 +45,18 @@ export const useUIStore = create<UIStore>()(
       timerTaskId: null,
       isDarkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
       sidebarOpen: true,
+      docsNewBadge: true,
+      pendingDocOpen: null,
       setView: (activeView) => set({ activeView }),
       setDate: (selectedDate) => set({ selectedDate }),
       setTimerTask: (timerTaskId) => set({ timerTaskId }),
       toggleDark: () => set((s) => ({ isDarkMode: !s.isDarkMode })),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
+      dismissDocsBadge: () => set({ docsNewBadge: false }),
+      openDocAt: (documentId, page, spineIndex) =>
+        set({ activeView: 'documents', pendingDocOpen: { documentId, page, spineIndex } }),
+      clearPendingDocOpen: () => set({ pendingDocOpen: null }),
     }),
     { name: 'dayflow-ui' }
   )

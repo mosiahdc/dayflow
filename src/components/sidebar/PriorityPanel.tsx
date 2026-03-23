@@ -17,10 +17,10 @@ import { CSS } from '@dnd-kit/utilities';
 import { usePriorityStore } from '@/store/priorityStore';
 import type { Priority, PriorityItem } from '@/types';
 
-const PRIORITY_COLORS: Record<Priority, string> = {
-  high: 'bg-red-100 text-red-600 border-red-200',
-  medium: 'bg-amber-100 text-amber-600 border-amber-200',
-  low: 'bg-green-100 text-green-600 border-green-200',
+const PRIORITY_COLORS: Record<Priority, { bg: string; text: string; border: string }> = {
+  high:   { bg: '#fee2e2', text: '#b91c1c', border: '#fecaca' },
+  medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+  low:    { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
 };
 
 const PRIORITY_BADGE: Record<Priority, string> = {
@@ -51,16 +51,17 @@ function SortablePriorityRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 p-2 rounded-lg border
-        bg-gray-50 dark:bg-gray-700 dark:border-gray-600
+      className={`flex items-center gap-2 p-2 rounded-lg
         ${item.done ? 'opacity-50' : ''}
         ${isDragging ? 'opacity-40 z-50' : ''}`}
+      css={{ border: '1px solid var(--df-border)', background: 'var(--df-surface2)' } as React.CSSProperties}
     >
       {/* Drag handle */}
       <div
         {...listeners}
         {...attributes}
-        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 text-base leading-none"
+        className="cursor-grab active:cursor-grabbing shrink-0 text-base leading-none"
+        style={{ color: 'var(--df-border2)' }}
         title="Drag to reorder"
       >
         ⠿
@@ -68,15 +69,20 @@ function SortablePriorityRow({
 
       {/* Priority badge */}
       <span
-        className={`text-xs font-bold px-1.5 py-0.5 rounded border shrink-0 ${PRIORITY_COLORS[item.priority]}`}
+        className="text-xs font-bold px-1.5 py-0.5 rounded border shrink-0"
+        style={{
+          background: PRIORITY_COLORS[item.priority].bg,
+          color: PRIORITY_COLORS[item.priority].text,
+          borderColor: PRIORITY_COLORS[item.priority].border,
+        }}
       >
         {PRIORITY_BADGE[item.priority]}
       </span>
 
       {/* Title */}
       <span
-        className={`flex-1 text-sm dark:text-white truncate
-        ${item.done ? 'line-through text-brand-muted' : ''}`}
+        className={`flex-1 text-sm truncate ${item.done ? 'line-through' : ''}`}
+        style={{ color: item.done ? 'var(--df-muted)' : 'var(--df-text)' }}
       >
         {item.title}
       </span>
@@ -85,8 +91,11 @@ function SortablePriorityRow({
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => onToggle(item.id)}
-        className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center
-          ${item.done ? 'bg-brand-green border-brand-green' : 'border-gray-300'}`}
+        className="w-4 h-4 rounded border shrink-0 flex items-center justify-center"
+        style={{
+          background: item.done ? 'var(--df-green)' : 'transparent',
+          borderColor: item.done ? 'var(--df-green)' : 'var(--df-border2)',
+        }}
       >
         {item.done && <span className="text-white text-xs leading-none">✓</span>}
       </button>
@@ -95,7 +104,10 @@ function SortablePriorityRow({
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => onDelete(item.id)}
-        className="text-gray-300 hover:text-red-400 text-sm leading-none shrink-0"
+        className="text-sm leading-none shrink-0 transition-colors"
+        style={{ color: 'var(--df-border2)' }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = '#f87171')}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'var(--df-border2)')}
       >
         ×
       </button>
@@ -165,13 +177,20 @@ export default function PriorityPanel() {
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden flex flex-col">
+    <div
+      className="rounded-xl overflow-hidden flex flex-col"
+      style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
+    >
       {/* Header */}
-      <div className="bg-brand-accent2 text-white px-4 py-2 flex justify-between items-center">
-        <span className="font-semibold text-sm">⭐ Priority / This Week</span>
+      <div
+        className="px-3 py-2 flex justify-between items-center"
+        style={{ background: 'rgba(124,58,237,0.15)', borderBottom: '1px solid var(--df-border)' }}
+      >
+        <span className="font-semibold text-sm text-white">⭐ Priority</span>
         <button
           onClick={() => setAdding(!adding)}
-          className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
+          className="text-xs px-2 py-1 rounded font-medium text-white transition-colors"
+          style={{ background: 'var(--df-purple)' }}
         >
           + Add
         </button>
@@ -179,10 +198,11 @@ export default function PriorityPanel() {
 
       {/* Add form */}
       {adding && (
-        <div className="p-3 border-b dark:border-gray-700 flex flex-col gap-2">
+        <div className="p-3 flex flex-col gap-2" style={{ borderBottom: '1px solid var(--df-border)' }}>
           <input
             autoFocus
-            className="w-full border rounded-lg px-3 py-1.5 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            className="w-full rounded-lg px-3 py-1.5 text-sm text-white outline-none"
+            style={{ background: 'var(--df-surface2)', border: '1px solid var(--df-border)' }}
             placeholder="Task title…"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -193,8 +213,12 @@ export default function PriorityPanel() {
               <button
                 key={p}
                 onClick={() => setPriority(p)}
-                className={`flex-1 py-1 rounded text-xs font-semibold capitalize border
-                  ${priority === p ? PRIORITY_COLORS[p] : 'dark:text-white dark:border-gray-600'}`}
+                className="flex-1 py-1 rounded text-xs font-semibold capitalize border transition-all"
+                style={
+                  priority === p
+                    ? { background: PRIORITY_COLORS[p].bg, color: PRIORITY_COLORS[p].text, borderColor: PRIORITY_COLORS[p].border }
+                    : { background: 'transparent', color: 'var(--df-muted)', borderColor: 'var(--df-border)' }
+                }
               >
                 {p}
               </button>
@@ -203,13 +227,15 @@ export default function PriorityPanel() {
           <div className="flex gap-2">
             <button
               onClick={() => setAdding(false)}
-              className="flex-1 border rounded py-1 text-xs dark:text-white dark:border-gray-600"
+              className="flex-1 rounded py-1 text-xs transition-colors"
+              style={{ border: '1px solid var(--df-border)', color: 'var(--df-muted)' }}
             >
               Cancel
             </button>
             <button
               onClick={save}
-              className="flex-1 bg-brand-accent2 text-white rounded py-1 text-xs font-semibold"
+              className="flex-1 text-white rounded py-1 text-xs font-semibold"
+              style={{ background: 'var(--df-purple)' }}
             >
               Save
             </button>
@@ -220,7 +246,7 @@ export default function PriorityPanel() {
       {/* Sortable list */}
       <div className="overflow-y-auto flex-1 p-2" style={{ maxHeight: '460px' }}>
         {ordered.length === 0 && (
-          <p className="text-xs text-brand-muted text-center mt-4">No items yet.</p>
+          <p className="text-xs text-center mt-4" style={{ color: 'var(--df-muted)' }}>No items yet.</p>
         )}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={ordered.map((i) => i.id)} strategy={verticalListSortingStrategy}>

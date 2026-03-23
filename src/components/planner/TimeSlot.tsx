@@ -121,10 +121,16 @@ const TimeSlot = memo(function TimeSlot({ slot, date, taskLayouts, onRemove, onT
   return (
     <div
       ref={setNodeRef}
-      className={`flex border-b border-brand-border min-h-[40px] relative transition-colors group
-        ${isOver ? 'bg-brand-accent/10' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'}`}
+      className="flex min-h-[40px] relative transition-colors group"
+      style={{
+        borderBottom: '1px solid var(--df-border)',
+        background: isOver ? 'rgba(79,110,247,0.08)' : 'transparent',
+      }}
     >
-      <span className="w-20 text-xs text-brand-muted px-2 py-1 shrink-0 select-none whitespace-nowrap">
+      <span
+        className="w-16 text-xs px-2 py-1 shrink-0 select-none whitespace-nowrap"
+        style={{ color: 'var(--df-muted)' }}
+      >
         {slot.label}
       </span>
       <div className="flex-1 relative">
@@ -145,8 +151,16 @@ const TimeSlot = memo(function TimeSlot({ slot, date, taskLayouts, onRemove, onT
         <button
           onClick={() => setShowPicker(true)}
           className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center
-            rounded text-gray-500 dark:text-gray-400 hover:text-white hover:bg-brand-accent
-            transition-colors z-20 text-base font-bold"
+            rounded text-base font-bold opacity-0 group-hover:opacity-100 transition-all z-20"
+          style={{ color: 'var(--df-muted)' }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'var(--df-accent)';
+            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = 'var(--df-muted)';
+          }}
           title="Add task to this slot"
         >
           +

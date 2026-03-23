@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskStore } from '@/store/taskStore';
 import { CATEGORY_COLORS } from '@/types';
 import type { Category, Task, RecurringPattern, DayOfWeek } from '@/types';
@@ -44,7 +44,15 @@ interface Props {
 export default function TaskForm({ onClose, editing, onSave }: Props) {
   const { addTask, updateTask } = useTaskStore();
 
+  const { tasks } = useTaskStore();
   const saved = loadSavedCategories();
+
+  // Derive all categories from actual tasks + defaults so DB categories always appear
+  const derivedCategories = (() => {
+    const fromTasks = tasks.map(t => t.category as string);
+    const merged = [...DEFAULT_CATEGORIES, ...fromTasks];
+    return merged.filter((c, i) => merged.indexOf(c) === i);
+  })();
 
   const [title, setTitle] = useState(editing?.title ?? '');
   const [category, setCategory] = useState<string>(editing?.category ?? 'work');
@@ -53,9 +61,17 @@ export default function TaskForm({ onClose, editing, onSave }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Category state — loaded from localStorage so custom ones persist
-  const [categories, setCategories] = useState<string[]>(saved.categories);
+  // Category state — starts from derived (tasks) + any locally added new ones
+  const [categories, setCategories] = useState<string[]>(derivedCategories);
   const [colorMap, setColorMap] = useState<Record<string, string>>(saved.colorMap);
+
+  // Re-sync when tasks finish loading so newly derived categories appear
+  useEffect(() => {
+    setCategories(prev => {
+      const merged = [...derivedCategories, ...prev];
+      return merged.filter((c, i) => merged.indexOf(c) === i);
+    });
+  }, [tasks.length]);
   const [showCatInput, setShowCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState(EXTRA_COLORS[0] ?? '#EC4899');

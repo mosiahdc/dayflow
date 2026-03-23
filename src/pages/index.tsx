@@ -16,6 +16,7 @@ import PriorityPanel from '@/components/sidebar/PriorityPanel';
 import DateNav from '@/components/planner/DateNav';
 import ReflectionPanel from '@/components/planner/ReflectionPanel';
 import GlanceBar from '@/components/planner/GlanceBar';
+import ReadingStatsWidget from '@/components/documents/ReadingStatsWidget';
 import type { DragData, Task } from '@/types';
 
 function DragPreview({ data }: { data: DragData }) {
@@ -125,6 +126,7 @@ export default function DayPage() {
               <div className="hidden lg:block shrink-0" style={{ height: '60px' }} />
               <PriorityPanel />
               <ReflectionPanel date={selectedDate} />
+              <ReadingStatsWidget />
             </div>
           </div>
         </div>

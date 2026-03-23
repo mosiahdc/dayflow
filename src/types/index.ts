@@ -19,7 +19,9 @@ export type View =
   | 'habits'
   | 'fasting'
   | 'library'
-  | 'settings';
+  | 'settings'
+  | 'documents'
+  | 'notebook';
 export type Priority = 'high' | 'medium' | 'low';
 
 // ── Category color map ────────────────────────────────────────────────────────
@@ -72,7 +74,7 @@ export interface Habit {
   category: Category;
   color: string;
   targetDays: DayOfWeek[];
-  reminderTime?: string | undefined; // "HH:MM" 24h format, optional
+  reminderTime?: string | undefined;
   createdAt: string;
 }
 
@@ -113,6 +115,19 @@ export interface PriorityItem {
   priority: Priority;
   done: boolean;
   dueDate?: string;
+  createdAt: string;
+}
+
+// ── Document ──────────────────────────────────────────────────────────────────
+export interface Document {
+  id: string;
+  userId: string;
+  title: string;
+  filePath: string;
+  fileSizeBytes: number;
+  pageCount: number | null;
+  lastPage: number;
+  fileType: 'pdf' | 'epub';
   createdAt: string;
 }
 

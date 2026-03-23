@@ -246,21 +246,27 @@ export default function ReflectionPanel({ date }: Props) {
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
-        {/* Header — toggle open + history button */}
-        <div className="bg-brand-teal text-white px-4 py-2 flex items-center justify-between">
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
+      >
+        {/* Header */}
+        <div
+          className="px-3 py-2 flex items-center justify-between"
+          style={{ background: 'rgba(13,148,136,0.15)', borderBottom: open ? '1px solid var(--df-border)' : 'none' }}
+        >
           <button
             onClick={() => setOpen(!open)}
             className="flex items-center gap-2 flex-1 text-left"
           >
-            <span className="font-semibold text-sm">📝 Daily Reflection</span>
-            <span className="text-xs opacity-70">{open ? '▲' : '▼'}</span>
+            <span className="font-semibold text-sm text-white">📝 Daily Reflection</span>
+            <span className="text-xs" style={{ color: 'var(--df-muted)' }}>{open ? '▲' : '▼'}</span>
           </button>
 
-          {/* History button */}
           <button
             onClick={() => setShowHistory(true)}
-            className="flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded transition-colors shrink-0"
+            className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-colors shrink-0 text-white"
+            style={{ background: '#0D9488' }}
             title="Browse all reflections"
           >
             <span>📓</span>
@@ -274,13 +280,17 @@ export default function ReflectionPanel({ date }: Props) {
         </div>
 
         {open && (
-          <div className="p-4 flex flex-col gap-3">
+          <div className="p-3 flex flex-col gap-3">
             <div>
-              <label className="text-xs text-brand-muted mb-1 block">
+              <label className="text-xs mb-1 block" style={{ color: 'var(--df-muted)' }}>
                 What did I accomplish today?
               </label>
               <textarea
-                className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"
+                style={{
+                  background: 'var(--df-surface2)',
+                  border: '1px solid var(--df-border)',
+                }}
                 rows={3}
                 placeholder="I completed…"
                 value={accomplished}
@@ -288,11 +298,15 @@ export default function ReflectionPanel({ date }: Props) {
               />
             </div>
             <div>
-              <label className="text-xs text-brand-muted mb-1 block">
+              <label className="text-xs mb-1 block" style={{ color: 'var(--df-muted)' }}>
                 What carries over to tomorrow?
               </label>
               <textarea
-                className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none resize-none"
+                style={{
+                  background: 'var(--df-surface2)',
+                  border: '1px solid var(--df-border)',
+                }}
                 rows={3}
                 placeholder="Still need to…"
                 value={carryOver}
@@ -301,8 +315,8 @@ export default function ReflectionPanel({ date }: Props) {
             </div>
             <button
               onClick={save}
-              className={`w-full py-2 rounded-lg text-sm font-semibold transition-colors
-                ${saved ? 'bg-brand-green text-white' : 'bg-brand-teal text-white hover:opacity-90'}`}
+              className="w-full py-2 rounded-lg text-sm font-semibold text-white transition-all"
+              style={{ background: saved ? 'var(--df-green)' : '#0D9488' }}
             >
               {saved ? '✓ Saved!' : 'Save Reflection'}
             </button>

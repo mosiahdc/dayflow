@@ -2,13 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── DayFlow Design Tokens ── */
+:root {
+  --df-bg:        #12121f;
+  --df-surface:   #1a1a2e;
+  --df-surface2:  #1e1e3a;
+  --df-border:    #2d2d4e;
+  --df-border2:   #3d3d6e;
+  --df-text:      #e8e8f0;
+  --df-muted:     #888899;
+  --df-accent:    #4F6EF7;
+  --df-green:     #10B981;
+  --df-amber:     #F59E0B;
+  --df-red:       #EF4444;
+  --df-purple:    #7C3AED;
+  --df-pink:      #EC4899;
+}
+
 @layer base {
+  html { color-scheme: dark; }
+
   body {
-    @apply bg-brand-bg text-brand-dark dark:bg-brand-dark dark:text-white;
+    background: var(--df-bg);
+    color: var(--df-text);
     font-family: system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
-  * {
-    @apply border-brand-border;
-  }
+  * { box-sizing: border-box; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--df-border2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--df-muted); }
 }
+
+/* ── Utility classes matching wireframe ── */
+.df-surface  { background: var(--df-surface);  border: 1px solid var(--df-border); border-radius: 10px; }
+.df-surface2 { background: var(--df-surface2); border: 1px solid var(--df-border); border-radius: 10px; }
+
+/* ── Pulse animation for fasting dot ── */
+@keyframes df-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .6; transform: scale(1.2); }
+}
+.df-pulse { animation: df-pulse 1.8s ease-in-out infinite; }

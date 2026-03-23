@@ -34,11 +34,14 @@ const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 function GlanceBarSkeleton() {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow px-4 py-3 flex items-center gap-4 animate-pulse">
-      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0" />
+    <div
+      className="rounded-xl px-4 py-3 flex items-center gap-4 animate-pulse"
+      style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
+    >
+      <div className="w-8 h-8 rounded-full shrink-0" style={{ background: 'var(--df-border)' }} />
       <div className="flex flex-col gap-1.5">
-        <div className="w-20 h-3 rounded bg-gray-200 dark:bg-gray-700" />
-        <div className="w-14 h-2.5 rounded bg-gray-100 dark:bg-gray-600" />
+        <div className="w-20 h-3 rounded" style={{ background: 'var(--df-border)' }} />
+        <div className="w-14 h-2.5 rounded" style={{ background: 'var(--df-surface2)' }} />
       </div>
     </div>
   );
@@ -146,43 +149,34 @@ export default function GlanceBar({ date }: Props) {
   if (!hasAnything) return null;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow px-4 py-3 flex flex-wrap gap-x-5 gap-y-2 items-center">
+    <div
+      className="rounded-xl px-4 py-3 flex flex-wrap gap-x-5 gap-y-2 items-center"
+      style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
+    >
       {/* Tasks */}
       {total > 0 && (
         <div className="flex items-center gap-2 min-w-0">
           <div className="relative w-8 h-8 shrink-0">
             <svg viewBox="0 0 32 32" className="-rotate-90 w-full h-full">
+              <circle cx="16" cy="16" r="12" fill="none" stroke="var(--df-border2)" strokeWidth="3" />
               <circle
-                cx="16"
-                cy="16"
-                r="12"
-                fill="none"
-                stroke="#e5e7eb"
-                strokeWidth="3"
-                className="dark:stroke-gray-700"
-              />
-              <circle
-                cx="16"
-                cy="16"
-                r="12"
-                fill="none"
-                stroke={taskPct === 100 ? '#10B981' : '#4F6EF7'}
-                strokeWidth="3"
-                strokeLinecap="round"
+                cx="16" cy="16" r="12" fill="none"
+                stroke={taskPct === 100 ? 'var(--df-green)' : 'var(--df-accent)'}
+                strokeWidth="3" strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 12}
                 strokeDashoffset={2 * Math.PI * 12 * (1 - taskPct / 100)}
                 className="transition-all duration-500"
               />
             </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold dark:text-white">
+            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white">
               {taskPct}%
             </span>
           </div>
           <div>
-            <p className="text-xs font-semibold dark:text-white leading-tight">
+            <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--df-text)' }}>
               {done}/{total} tasks
             </p>
-            <p className="text-[10px] text-brand-muted leading-tight">
+            <p className="text-[10px] leading-tight" style={{ color: 'var(--df-muted)' }}>
               {fmtHours(totalMins)} planned
             </p>
           </div>
@@ -191,7 +185,7 @@ export default function GlanceBar({ date }: Props) {
 
       {/* Divider */}
       {total > 0 && (todayHabits.length > 0 || (active && isToday)) && (
-        <div className="w-px h-8 bg-gray-200 dark:bg-gray-700 shrink-0 hidden sm:block" />
+        <div className="w-px h-8 shrink-0 hidden sm:block" style={{ background: 'var(--df-border)' }} />
       )}
 
       {/* Habits */}
@@ -206,33 +200,33 @@ export default function GlanceBar({ date }: Props) {
                 <div
                   key={h.id}
                   title={h.title}
-                  className={`w-4 h-4 rounded-sm transition-all ${completed ? '' : 'opacity-25'}`}
+                  className={`w-3.5 h-3.5 rounded-sm transition-all ${completed ? '' : 'opacity-20'}`}
                   style={{ backgroundColor: h.color }}
                 />
               );
             })}
           </div>
-          <p className="text-xs dark:text-white">
+          <p className="text-xs" style={{ color: 'var(--df-text)' }}>
             <span className="font-semibold">{completedHabits}</span>
-            <span className="text-brand-muted">/{todayHabits.length} habits</span>
+            <span style={{ color: 'var(--df-muted)' }}>/{todayHabits.length} habits</span>
           </p>
         </div>
       )}
 
       {/* Fasting divider */}
       {(todayHabits.length > 0 || total > 0) && hasFasting && (
-        <div className="w-px h-8 bg-gray-200 dark:bg-gray-700 shrink-0 hidden sm:block" />
+        <div className="w-px h-8 shrink-0 hidden sm:block" style={{ background: 'var(--df-border)' }} />
       )}
 
       {/* Fasting — active (today) */}
       {active && isToday && (
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+          <div className="w-2 h-2 rounded-full df-pulse shrink-0" style={{ background: '#6366f1' }} />
           <div>
-            <p className="text-xs font-semibold dark:text-white leading-tight">
+            <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--df-text)' }}>
               {fmtFastElapsed(active.startedAt)} fasting
             </p>
-            <p className="text-[10px] text-brand-muted leading-tight">Goal: {active.goalHours}h</p>
+            <p className="text-[10px] leading-tight" style={{ color: 'var(--df-muted)' }}>Goal: {active.goalHours}h</p>
           </div>
         </div>
       )}
@@ -244,11 +238,11 @@ export default function GlanceBar({ date }: Props) {
             {goalMet ? '🏆' : '🕐'}
           </span>
           <div>
-            <p className="text-xs font-semibold dark:text-white leading-tight">
+            <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--df-text)' }}>
               {fmtHours(Math.round(totalFastedSecs / 60))} fasted
-              {goalMet && <span className="ml-1 text-green-500 text-[10px]">✓ goal</span>}
+              {goalMet && <span className="ml-1 text-[10px]" style={{ color: 'var(--df-green)' }}>✓ goal</span>}
             </p>
-            <p className="text-[10px] text-brand-muted leading-tight">
+            <p className="text-[10px] leading-tight" style={{ color: 'var(--df-muted)' }}>
               {dateSessions.length} session{dateSessions.length > 1 ? 's' : ''}
               {bestSession && ` · goal ${bestSession.goalHours}h`}
             </p>
@@ -259,7 +253,7 @@ export default function GlanceBar({ date }: Props) {
       {/* Today: also show completed sessions from earlier today alongside active */}
       {isToday && dateSessions.length > 0 && (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-brand-muted">
+          <span className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
             +{fmtHours(Math.round(totalFastedSecs / 60))} earlier
           </span>
         </div>
@@ -270,7 +264,7 @@ export default function GlanceBar({ date }: Props) {
         done === total &&
         todayHabits.length > 0 &&
         completedHabits === todayHabits.length && (
-          <div className="ml-auto text-xs font-semibold text-brand-green flex items-center gap-1">
+          <div className="ml-auto text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--df-green)' }}>
             <span>✨</span>
             <span>Perfect day!</span>
           </div>

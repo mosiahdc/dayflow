@@ -51,34 +51,34 @@ function DraggableTaskCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`rounded border-l-4 px-2 py-1.5 shadow-sm select-none group
-        cursor-grab active:cursor-grabbing
-        bg-white dark:bg-gray-700
-        ${isDragging ? 'opacity-40 z-50' : 'hover:brightness-95 dark:hover:brightness-110 transition-all'}`}
-      style={{ borderLeftColor: task.color, backgroundColor: `${task.color}18` }}
+      className={`rounded select-none group cursor-grab active:cursor-grabbing transition-all
+        ${isDragging ? 'opacity-40 z-50' : ''}`}
+      style={{
+        borderLeft: `3px solid ${task.color}`,
+        backgroundColor: `${task.color}1a`,
+        padding: '6px 8px',
+      }}
     >
       <div className="flex items-center gap-1">
-        {/* Task info */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-brand-dark dark:text-white truncate leading-tight">
+          <p className="text-xs font-semibold truncate leading-tight text-white">
             {task.title}
           </p>
-          <p className="text-[10px] text-brand-muted capitalize leading-tight">
+          <p className="text-[10px] capitalize leading-tight" style={{ color: 'var(--df-muted)' }}>
             {task.category} · {task.durationMins}m
           </p>
         </div>
 
-        {/* Action buttons — visible on hover */}
         <div
           className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          {/* Move up/down arrows — side by side */}
           <div className="flex items-center gap-0.5">
             <button
               onClick={onMoveUp}
               disabled={isFirst}
-              className="text-gray-400 hover:text-brand-accent disabled:opacity-20 text-xs px-1 py-0.5 rounded"
+              className="text-xs px-1 py-0.5 rounded disabled:opacity-20 transition-colors"
+              style={{ color: 'var(--df-muted)' }}
               title="Move up"
             >
               ▲
@@ -86,23 +86,23 @@ function DraggableTaskCard({
             <button
               onClick={onMoveDown}
               disabled={isLast}
-              className="text-gray-400 hover:text-brand-accent disabled:opacity-20 text-xs px-1 py-0.5 rounded"
+              className="text-xs px-1 py-0.5 rounded disabled:opacity-20 transition-colors"
+              style={{ color: 'var(--df-muted)' }}
               title="Move down"
             >
               ▼
             </button>
           </div>
 
-          {/* Edit */}
           <button
             onClick={onEdit}
-            className="text-gray-400 hover:text-brand-accent text-xs p-0.5 rounded"
+            className="text-xs p-0.5 rounded transition-colors"
+            style={{ color: 'var(--df-muted)' }}
             title="Edit"
           >
             ✏️
           </button>
 
-          {/* Delete */}
           {confirmDelete ? (
             <>
               <button
@@ -113,7 +113,8 @@ function DraggableTaskCard({
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
-                className="text-[10px] text-gray-400 hover:text-gray-600 px-0.5"
+                className="text-[10px] px-0.5"
+                style={{ color: 'var(--df-muted)' }}
               >
                 ✕
               </button>
@@ -121,7 +122,8 @@ function DraggableTaskCard({
           ) : (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="text-gray-400 hover:text-red-400 text-xs p-0.5 rounded"
+              className="text-xs p-0.5 rounded transition-colors"
+              style={{ color: 'var(--df-muted)' }}
               title="Delete"
             >
               🗑️
@@ -142,17 +144,21 @@ export default function TaskLibrary() {
   const [editing, setEditing] = useState<Task | undefined>();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
-  const [allCategories, setAllCategories] = useState<string[]>(
-    () => loadAllCategories().categories
-  );
   const [customColorMap, setCustomColorMap] = useState<Record<string, string>>(
     () => loadAllCategories().colorMap
   );
 
-  // Refresh categories when TaskForm adds a new one
+  // Derive categories from actual tasks + defaults, so DB categories always appear
+  const allCategories = (() => {
+    const fromTasks = tasks.map(t => t.category as string);
+    const merged = [...DEFAULT_CATEGORIES, ...fromTasks];
+    // Deduplicate preserving order
+    return merged.filter((c, i) => merged.indexOf(c) === i);
+  })();
+
+  // Refresh custom color map when TaskForm adds a new category
   const refreshCategories = () => {
-    const { categories, colorMap } = loadAllCategories();
-    setAllCategories(categories);
+    const { colorMap } = loadAllCategories();
     setCustomColorMap(colorMap);
   };
 
@@ -206,27 +212,38 @@ export default function TaskLibrary() {
 
   return (
     <div
-      className="bg-white dark:bg-gray-800 rounded-xl border shadow flex flex-col"
-      style={{ height: `${LIBRARY_HEIGHT}px` }}
+      className="rounded-xl flex flex-col"
+      style={{
+        height: `${LIBRARY_HEIGHT}px`,
+        background: 'var(--df-surface)',
+        border: '1px solid var(--df-border)',
+      }}
     >
       {/* Header */}
-      <div className="bg-brand-accent2 text-white px-3 py-2 rounded-t-xl flex justify-between items-center shrink-0">
-        <span className="font-semibold text-sm">📚 Task Library</span>
+      <div
+        className="px-3 py-2 rounded-t-xl flex justify-between items-center shrink-0"
+        style={{ background: 'var(--df-accent)', borderBottom: '1px solid var(--df-border)' }}
+      >
+        <span className="font-semibold text-sm text-white">📚 Task Library</span>
         <button
           onClick={() => {
             setEditing(undefined);
             setShowForm(true);
           }}
-          className="text-xs bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded"
+          className="text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded transition-colors"
         >
           + New
         </button>
       </div>
 
       {/* Search */}
-      <div className="px-2 py-1.5 border-b dark:border-gray-700 shrink-0">
+      <div className="px-2 py-1.5 shrink-0" style={{ borderBottom: '1px solid var(--df-border)' }}>
         <input
-          className="w-full border rounded px-2 py-1 text-xs dark:bg-gray-700 dark:text-white dark:border-gray-600"
+          className="w-full rounded px-2 py-1 text-xs text-white outline-none"
+          style={{
+            background: 'var(--df-surface2)',
+            border: '1px solid var(--df-border)',
+          }}
           placeholder="🔍 Search…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -234,7 +251,10 @@ export default function TaskLibrary() {
       </div>
 
       {/* Category filter */}
-      <div className="flex gap-1 px-2 py-1.5 border-b dark:border-gray-700 shrink-0 flex-wrap">
+      <div
+        className="flex gap-1 px-2 py-1.5 shrink-0 flex-wrap"
+        style={{ borderBottom: '1px solid var(--df-border)' }}
+      >
         {['all', ...allCategories].map((c) => {
           const color =
             c === 'all'
@@ -252,8 +272,8 @@ export default function TaskLibrary() {
               className="px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize transition-all border"
               style={{
                 borderColor: color,
-                backgroundColor: activeFilter === c ? color : undefined,
-                color: activeFilter === c ? 'white' : undefined,
+                backgroundColor: activeFilter === c ? color : 'transparent',
+                color: activeFilter === c ? 'white' : 'var(--df-muted)',
               }}
             >
               {c}
@@ -262,10 +282,10 @@ export default function TaskLibrary() {
         })}
       </div>
 
-      {/* Sortable task list */}
+      {/* Task list */}
       <div className="flex-1 overflow-y-auto px-2 py-1.5">
         {filtered.length === 0 && (
-          <p className="text-xs text-brand-muted text-center mt-4">
+          <p className="text-xs text-center mt-4" style={{ color: 'var(--df-muted)' }}>
             {tasks.length === 0 ? 'No tasks yet. Create one!' : 'No matches.'}
           </p>
         )}
@@ -296,7 +316,7 @@ export default function TaskLibrary() {
           onClose={() => {
             setShowForm(false);
             setEditing(undefined);
-            refreshCategories(); // pick up any newly added categories
+            refreshCategories();
           }}
         />
       )}
