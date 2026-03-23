@@ -611,8 +611,7 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
               <div style={{ display:'flex',gap:8,flexWrap:'wrap',alignItems:'center' }}>
                 <button style={btnPrimary} onClick={() => onStartReading(doc)}>Start Reading →</button>
                 <button style={btnOutline} onClick={() => setEditDoc(doc)}>✏️ Edit Info</button>
-                <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} className="df-btn-mobile-only" title="Remove">✕</button>
-                <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="df-btn-desktop-only">Remove</button>
+                <button style={btnDanger} onClick={() => setConfirmId(doc.id)}><span className="hidden sm:inline">Remove</span><span className="sm:hidden">✕</span></button>
               </div>
             </div>
           </div>
@@ -786,10 +785,8 @@ function ReadingTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
                 <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
                   <button style={btnOutline} onClick={() => setDateDocId(doc.id)}>Edit Start Date</button>
                   <button style={{ ...btnOutline, color:'var(--df-accent)', borderColor:'var(--df-accent)' }} onClick={() => setNoteDocId(doc.id)}>📝 Add Note</button>
-                  <button style={{ ...btnSuccess, padding:'4px 12px', fontSize:16, lineHeight:1 }} onClick={() => setFinishId(doc.id)} title="Mark Finished" className="df-btn-mobile-only">✓</button>
-                  <button style={btnSuccess} onClick={() => setFinishId(doc.id)} className="df-btn-desktop-only">Mark Finished</button>
-                  <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="df-btn-mobile-only">✕</button>
-                  <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="df-btn-desktop-only">Remove</button>
+                  <button style={btnSuccess} onClick={() => setFinishId(doc.id)}><span className="hidden sm:inline">Mark Finished</span><span className="sm:hidden">✓</span></button>
+                  <button style={btnDanger} onClick={() => setConfirmId(doc.id)}><span className="hidden sm:inline">Remove</span><span className="sm:hidden">✕</span></button>
                 </div>
               </div>
             </div>
@@ -881,16 +878,19 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
   const totalPages = filtered.reduce((sum, d) => sum + (d.pageCount ?? 0), 0);
   const avgDays = filtered.length === 0 ? 0 :
     Math.round(filtered.reduce((sum, d) => sum + (daysBetween(d.startedAt, d.finishedAt ?? d.createdAt) ?? 0), 0) / filtered.length);
-  const { page: aPage, setPage: setAPage, totalPages: aTotalPages, pageItems: archivePage } = usePagination(filtered, [filtered.length, filterBy, filterYear, filterMonth]);
 
-  // Group by month-year — group only the current page's items
+  // Paginate flat sorted list, then re-group the page's books by month
+  const [aPage, setAPage] = useState(1);
+  useEffect(() => { setAPage(1); }, [filtered.length, filterBy, filterYear, filterMonth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const aTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const sortedFiltered = [...filtered].sort((a,b) => new Date(b.finishedAt??b.createdAt).getTime() - new Date(a.finishedAt??a.createdAt).getTime());
+  const pageBooks = sortedFiltered.slice((aPage - 1) * PAGE_SIZE, aPage * PAGE_SIZE);
   const groups: Record<string, Document[]> = {};
-  [...archivePage].sort((a,b) => new Date(b.finishedAt??b.createdAt).getTime() - new Date(a.finishedAt??a.createdAt).getTime())
-    .forEach(d => {
-      const key = format(parseISO(d.finishedAt ?? d.createdAt), 'MMMM yyyy');
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(d);
-    });
+  pageBooks.forEach(d => {
+    const key = format(parseISO(d.finishedAt ?? d.createdAt), 'MMMM yyyy');
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(d);
+  });
 
   const years = Array.from(new Set(finished.map(d => format(parseISO(d.finishedAt??d.createdAt),'yyyy')))).sort().reverse();
   const months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
@@ -997,9 +997,7 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
                         🗑 Delete File
                       </button>
                     )}
-                    <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="sm:hidden">✕</button>
-                    <button style={{ ...btnDanger, padding:"4px 10px", fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="df-btn-mobile-only">✕</button>
-                    <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="df-btn-desktop-only">Remove</button>
+                    <button style={btnDanger} onClick={() => setConfirmId(doc.id)}><span className="hidden sm:inline">Remove</span><span className="sm:hidden">✕</span></button>
                   </div>
                 </div>
               </div>
