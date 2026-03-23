@@ -617,7 +617,7 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
             </div>
           </div>
         ))
-      }
+      )}
       {queue.length > PAGE_SIZE && <Pagination page={qPage} totalPages={qTotalPages} total={queue.length} pageSize={PAGE_SIZE} onPage={setQPage} />}
 
       {/* Drop zone */}
