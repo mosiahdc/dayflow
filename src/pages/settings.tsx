@@ -53,6 +53,14 @@ function Row({
   );
 }
 
+import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import {
+  isBiometricAvailable,
+  isBiometricLockEnabled,
+  setBiometricLockEnabled,
+} from '@/lib/biometric';
+
 export default function SettingsPage() {
   const {
     taskRemindersEnabled,

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { Document } from '@/types';
+import { useHabitStore } from '@/store/habitStore';
 
 // Get local date as YYYY-MM-DD (avoids UTC offset shifting day for PH/Asia timezones)
 function localDateStr(): string {
@@ -245,6 +246,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
       { user_id: (await supabase.auth.getUser()).data.user?.id, document_id: id, date: todayDate, pages_reached: page },
       { onConflict: 'user_id,document_id,date' }
     );
+    // Auto-check "Reading" habit for today
+    useHabitStore.getState().markHabitDoneByTitle('Reading', todayDate);
     set((s) => ({
       documents: s.documents.map((d) => (d.id === id ? { ...d, lastPage: page, updatedAt: now } : d)),
     }));
@@ -297,6 +300,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
             { user_id: user.id, document_id: id, date: todayDate, pages_reached: doc.lastPage },
             { onConflict: 'user_id,document_id,date' }
           );
+          // Auto-check "Reading" habit for today
+          useHabitStore.getState().markHabitDoneByTitle('Reading', todayDate);
         }
       }
     }

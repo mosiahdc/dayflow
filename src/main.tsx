@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import App from './App';
+import BiometricLock from './components/BiometricLock';
 import './index.css';
 
 if (Capacitor.isNativePlatform()) {
@@ -13,6 +14,8 @@ if (Capacitor.isNativePlatform()) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <BiometricLock>
+      <App />
+    </BiometricLock>
   </React.StrictMode>
 );

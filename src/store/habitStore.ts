@@ -30,6 +30,7 @@ interface HabitStore {
   fetchEntries: (dates: string[]) => Promise<void>;
   fetchAllEntries: () => Promise<void>;
   toggleEntry: (habitId: string, date: string) => Promise<void>;
+  markHabitDoneByTitle: (title: string, date: string) => Promise<void>;
   addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
   updateHabit: (
     id: string,
@@ -84,6 +85,41 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
       const { data } = await supabase
         .from('habit_entries')
         .insert({ habit_id: habitId, date, user_id: user.id, completed: true })
+        .select()
+        .single();
+      if (data) {
+        const mapped = mapEntry(data);
+        set((s) => ({
+          weekEntries: [...s.weekEntries, mapped],
+          entries: [...s.entries, mapped],
+        }));
+      }
+    }
+  },
+
+  markHabitDoneByTitle: async (title: string, date: string) => {
+    const { habits, weekEntries } = get();
+    // Find habit by title (case-insensitive)
+    const habit = habits.find(h => h.title.toLowerCase() === title.toLowerCase());
+    if (!habit) return;
+    // Check if already completed today
+    const existing = weekEntries.find(e => e.habitId === habit.id && e.date === date);
+    if (existing?.completed) return; // already done, skip
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    if (existing) {
+      // Entry exists but not completed — update it
+      await supabase.from('habit_entries').update({ completed: true }).eq('id', existing.id);
+      const updated = { ...existing, completed: true };
+      set((s) => ({
+        weekEntries: s.weekEntries.map(e => e.id === existing.id ? updated : e),
+        entries: [...s.entries, updated],
+      }));
+    } else {
+      // No entry yet — insert one
+      const { data } = await supabase
+        .from('habit_entries')
+        .insert({ habit_id: habit.id, date, user_id: user.id, completed: true })
         .select()
         .single();
       if (data) {

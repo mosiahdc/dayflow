@@ -125,8 +125,8 @@ export default function DayPage() {
             <div className="lg:w-72 shrink-0 flex flex-col gap-4">
               <div className="hidden lg:block shrink-0" style={{ height: '60px' }} />
               <PriorityPanel />
-              <ReflectionPanel date={selectedDate} />
               <ReadingStatsWidget />
+              <ReflectionPanel date={selectedDate} />
             </div>
           </div>
         </div>
