@@ -48,3 +48,27 @@
   50%       { opacity: .6; transform: scale(1.2); }
 }
 .df-pulse { animation: df-pulse 1.8s ease-in-out infinite; }
+/* ── Insight tab responsive grids ── */
+.insight-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.insight-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .insight-lib-grid    { grid-template-columns: repeat(4, 1fr); }
+  .insight-bottom-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── Responsive buttons ── */
+.df-btn-mobile-only { display: inline-flex; }
+.df-btn-desktop-only { display: none; }
+@media (min-width: 640px) {
+  .df-btn-mobile-only  { display: none; }
+  .df-btn-desktop-only { display: inline-flex; }
+}

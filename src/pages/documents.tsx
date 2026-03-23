@@ -393,6 +393,8 @@ function InsightTab({ docs, setTab, onOpenDoc }: {
         <p style={{ fontSize:13,color:'var(--df-muted)' }}>Your reading life, at a glance.</p>
       </div>
 
+      {/* Responsive CSS for insight grid */}
+      
       {/* Goal card */}
       <div style={{ ...card, marginBottom:20 }}>
         <div style={{ display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12 }}>
@@ -413,7 +415,7 @@ function InsightTab({ docs, setTab, onOpenDoc }: {
 
       {/* Library stats */}
       <h2 style={{ fontSize:16,fontWeight:500,color:'var(--df-text)',marginBottom:12 }}>My Library</h2>
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20 }} className="sm:grid-cols-4">
+      <div className="insight-lib-grid">
         {[
           { n: queue.length, l: 'In Queue', t: 'queue' as ReadTab },
           { n: reading.length, l: 'Currently Reading', t: 'reading' as ReadTab },
@@ -432,7 +434,7 @@ function InsightTab({ docs, setTab, onOpenDoc }: {
       </div>
 
       {/* Bottom sections — vertical on mobile, horizontal on desktop */}
-      <div style={{ display:'grid',gridTemplateColumns:'1fr',gap:12 }} className="sm:grid-cols-3">
+      <div className="insight-bottom-grid">
         <div style={card}>
           <h3 style={{ fontSize:13,fontWeight:500,color:'var(--df-text)',marginBottom:10 }}>Top Authors</h3>
           {topAuthors.length === 0
@@ -601,8 +603,8 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
               <div style={{ display:'flex',gap:8,flexWrap:'wrap',alignItems:'center' }}>
                 <button style={btnPrimary} onClick={() => onStartReading(doc)}>Start Reading →</button>
                 <button style={btnOutline} onClick={() => setEditDoc(doc)}>✏️ Edit Info</button>
-                <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} className="sm:hidden" title="Remove">✕</button>
-                <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="hidden sm:inline-flex">Remove</button>
+                <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} className="df-btn-mobile-only" title="Remove">✕</button>
+                <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="df-btn-desktop-only">Remove</button>
               </div>
             </div>
           </div>
@@ -774,10 +776,10 @@ function ReadingTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
                 <div style={{ display:'flex',gap:8,flexWrap:'wrap' }}>
                   <button style={btnOutline} onClick={() => setDateDocId(doc.id)}>Edit Start Date</button>
                   <button style={{ ...btnOutline, color:'var(--df-accent)', borderColor:'var(--df-accent)' }} onClick={() => setNoteDocId(doc.id)}>📝 Add Note</button>
-                  <button style={{ ...btnSuccess, padding:'4px 12px', fontSize:16, lineHeight:1 }} onClick={() => setFinishId(doc.id)} title="Mark Finished" className="sm:hidden">✓</button>
-                  <button style={btnSuccess} onClick={() => setFinishId(doc.id)} className="hidden sm:inline-flex">Mark Finished</button>
-                  <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="sm:hidden">✕</button>
-                  <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="hidden sm:inline-flex">Remove</button>
+                  <button style={{ ...btnSuccess, padding:'4px 12px', fontSize:16, lineHeight:1 }} onClick={() => setFinishId(doc.id)} title="Mark Finished" className="df-btn-mobile-only">✓</button>
+                  <button style={btnSuccess} onClick={() => setFinishId(doc.id)} className="df-btn-desktop-only">Mark Finished</button>
+                  <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="df-btn-mobile-only">✕</button>
+                  <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="df-btn-desktop-only">Remove</button>
                 </div>
               </div>
             </div>
@@ -984,7 +986,8 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
                       </button>
                     )}
                     <button style={{ ...btnDanger, padding:'4px 10px', fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="sm:hidden">✕</button>
-                    <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="hidden sm:inline-flex">Remove</button>
+                    <button style={{ ...btnDanger, padding:"4px 10px", fontSize:14, lineHeight:1 }} onClick={() => setConfirmId(doc.id)} title="Remove" className="df-btn-mobile-only">✕</button>
+                    <button style={btnDanger} onClick={() => setConfirmId(doc.id)} className="df-btn-desktop-only">Remove</button>
                   </div>
                 </div>
               </div>
