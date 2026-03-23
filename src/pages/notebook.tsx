@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { usePagination, PAGE_SIZE } from '@/hooks/usePagination';
+import Pagination from '@/components/Pagination';
 import { useHighlightStore, HIGHLIGHT_COLORS } from '@/store/highlightStore';
 import type { Highlight } from '@/store/highlightStore';
 import { useUIStore } from '@/store/uiStore';
@@ -216,6 +218,15 @@ export default function NotebookPage() {
     return acc;
   }, {});
 
+  const { page: nPage, setPage: setNPage, totalPages: nTotalPages, pageItems: filteredPage } = usePagination(filtered, [filtered.length, search, filterColor, filterDoc]);
+
+  // Re-group only the current page's items
+  const groupedPage = filteredPage.reduce<Record<string, { title: string; items: Highlight[] }>>((acc, h) => {
+    if (!acc[h.documentId]) acc[h.documentId] = { title: h.documentTitle, items: [] };
+    acc[h.documentId]!.items.push(h);
+    return acc;
+  }, {});
+
   return (
     <div className="max-w-2xl mx-auto px-1">
       {/* Header */}
@@ -344,7 +355,7 @@ export default function NotebookPage() {
       )}
 
       {/* Grouped highlights */}
-      {Object.entries(grouped).map(([docId, { title, items }]) => (
+      {Object.entries(groupedPage).map(([docId, { title, items }]) => (
         <div key={docId} className="mb-6">
           {/* Document header */}
           <div className="flex items-center gap-2 mb-3">
@@ -370,6 +381,7 @@ export default function NotebookPage() {
           ))}
         </div>
       ))}
+      <Pagination page={nPage} totalPages={nTotalPages} total={filtered.length} pageSize={PAGE_SIZE} onPage={setNPage} />
     </div>
   );
 }

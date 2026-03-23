@@ -7,6 +7,8 @@ import DocumentReader from '@/components/documents/DocumentReader';
 import type { Document } from '@/types';
 import { extractPdfMeta, extractEpubMeta } from '@/lib/extractBookMeta';
 import { parseBookFilename } from '@/lib/parseBookFilename';
+import { usePagination, PAGE_SIZE } from '@/hooks/usePagination';
+import Pagination from '@/components/Pagination';
 import NotebookPage from './notebook';
 import { format, parseISO, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 
@@ -539,6 +541,7 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [editDoc, setEditDoc] = useState<Document | null>(null);
   const queue = docs.filter(d => d.status === 'queue');
+  const { page: qPage, setPage: setQPage, totalPages: qTotalPages, pageItems: queuePage } = usePagination(queue, [queue.length]);
 
   const handleDropFile = async (file: File | undefined) => {
     if (!file) return;
@@ -580,7 +583,7 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
           <button style={btnPrimary} onClick={() => fileInputRef.current?.click()}>+ Upload Book</button>
         </div>
       ) : (
-        queue.map(doc => (
+        queuePage.map(doc => (
           <div key={doc.id} style={{ ...card, display:'flex',gap:14,marginBottom:12,alignItems:'flex-start' }}>
             {/* Cover — click opens reader WITHOUT moving to Reading */}
             <div style={{ cursor:'pointer',flexShrink:0 }} onClick={() => onOpenDoc(doc, false)}>
@@ -614,7 +617,8 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
             </div>
           </div>
         ))
-      )}
+      }
+      {queue.length > PAGE_SIZE && <Pagination page={qPage} totalPages={qTotalPages} total={queue.length} pageSize={PAGE_SIZE} onPage={setQPage} />}
 
       {/* Drop zone */}
       <div
@@ -675,6 +679,7 @@ function ReadingTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
   useEffect(() => { fetchHighlights(); }, [fetchHighlights]);
 
   const reading = docs.filter(d => d.status === 'reading');
+  const { page: rPage, setPage: setRPage, totalPages: rTotalPages, pageItems: readingPage } = usePagination(reading, [reading.length]);
 
   // Days current streak — uses reading_sessions table (one row per day read)
   const today = new Date();
@@ -728,7 +733,7 @@ function ReadingTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
           <p style={{ fontSize:14,fontWeight:500,color:'var(--df-text)',marginBottom:6 }}>Nothing in progress</p>
           <p style={{ fontSize:13,color:'var(--df-muted)' }}>Start reading a book from your Queue.</p>
         </div>
-      ) : reading.map(doc => {
+      ) : readingPage.map(doc => {
         const pct = doc.pageCount ? Math.round((doc.lastPage / doc.pageCount) * 100) : 0;
         const dateDoc = dateDocId === doc.id ? doc : null;
         return (
@@ -837,6 +842,7 @@ function ReadingTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
           />
         );
       })()}
+      <Pagination page={rPage} totalPages={rTotalPages} total={reading.length} pageSize={PAGE_SIZE} onPage={setRPage} />
       {notesDoc && <NotesModal doc={notesDoc} onClose={() => setNotesDoc(null)} />}
     </div>
   );
@@ -875,10 +881,11 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
   const totalPages = filtered.reduce((sum, d) => sum + (d.pageCount ?? 0), 0);
   const avgDays = filtered.length === 0 ? 0 :
     Math.round(filtered.reduce((sum, d) => sum + (daysBetween(d.startedAt, d.finishedAt ?? d.createdAt) ?? 0), 0) / filtered.length);
+  const { page: aPage, setPage: setAPage, totalPages: aTotalPages, pageItems: archivePage } = usePagination(filtered, [filtered.length, filterBy, filterYear, filterMonth]);
 
-  // Group by month-year
+  // Group by month-year — group only the current page's items
   const groups: Record<string, Document[]> = {};
-  [...filtered].sort((a,b) => new Date(b.finishedAt??b.createdAt).getTime() - new Date(a.finishedAt??a.createdAt).getTime())
+  [...archivePage].sort((a,b) => new Date(b.finishedAt??b.createdAt).getTime() - new Date(a.finishedAt??a.createdAt).getTime())
     .forEach(d => {
       const key = format(parseISO(d.finishedAt ?? d.createdAt), 'MMMM yyyy');
       if (!groups[key]) groups[key] = [];
@@ -1022,6 +1029,7 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
           onSave={(start,fin) => updateDates(dateDocId, new Date(start).toISOString(), fin ? new Date(fin).toISOString() : null)}
           onClose={() => setDateDocId(null)} />
       )})()}
+      <Pagination page={aPage} totalPages={aTotalPages} total={filtered.length} pageSize={PAGE_SIZE} onPage={setAPage} />
       {notesDoc && <NotesModal doc={notesDoc} onClose={() => setNotesDoc(null)} />}
       {noteDocId && (() => {
         const doc = docs.find(d => d.id === noteDocId);
