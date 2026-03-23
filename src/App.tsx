@@ -18,7 +18,7 @@ import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import type { Session } from '@supabase/supabase-js';
 
 function AuthenticatedApp() {
-  const { isDarkMode, activeView, setView, setDate, toggleDark, docsNewBadge, dismissDocsBadge } =
+  const { isDarkMode, activeView, setView, setDate, setWeekStart, setActiveMonth, toggleDark, docsNewBadge, dismissDocsBadge } =
     useUIStore();
   const { needRefresh, updateServiceWorker } = useRegisterSW();
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useUIStore } from '@/store/uiStore';
 import { useDocumentStore } from '@/store/documentStore';
 import { useHighlightStore } from '@/store/highlightStore';
@@ -526,7 +526,7 @@ function QueueTab({ docs, onStartReading, onOpenDoc, fileInputRef }: {
   docs: Document[];
   onStartReading: (d: Document) => void;
   onOpenDoc: (d: Document, addToReading?: boolean) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }) {
   const { deleteDocument, updateTitle, updateAuthor, uploadDocument, updatePageCountAndCover } = useDocumentStore();
   const [confirmId, setConfirmId] = useState<string | null>(null);

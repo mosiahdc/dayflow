@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDocumentStore } from '@/store/documentStore';
 import { useReadingGoalStore } from '@/store/readingGoalStore';
 import { useUIStore } from '@/store/uiStore';

@@ -129,6 +129,13 @@ export interface Document {
   lastPage: number;
   fileType: 'pdf' | 'epub';
   createdAt: string;
+  // Extended fields
+  status: 'queue' | 'reading' | 'finished';
+  author: string | null;
+  coverUrl: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  updatedAt: string;
 }
 
 // ── Drag and drop data ────────────────────────────────────────────────────────

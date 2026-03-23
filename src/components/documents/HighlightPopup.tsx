@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function HighlightPopup({ text, x, y, onSave, onDismiss }: Props) {
-  const [color, setColor] = useState(HIGHLIGHT_COLORS[0].value);
+  const [color, setColor] = useState(HIGHLIGHT_COLORS[0]?.value ?? '#FBBF24');
   const [note, setNote] = useState('');
   const [step, setStep] = useState<'color' | 'note'>('color');
 

@@ -26,6 +26,8 @@ interface UIStore {
   pendingDocOpen: { documentId: string; page: number | null; spineIndex: number | null } | null;
   setView: (view: View) => void;
   setDate: (date: string) => void;
+  setWeekStart: (date: string) => void;
+  setActiveMonth: (month: string) => void;
   setTimerTask: (id: string | null) => void;
   toggleDark: () => void;
   toggleSidebar: () => void;
@@ -49,6 +51,8 @@ export const useUIStore = create<UIStore>()(
       pendingDocOpen: null,
       setView: (activeView) => set({ activeView }),
       setDate: (selectedDate) => set({ selectedDate }),
+      setWeekStart: (weekStart) => set({ weekStart }),
+      setActiveMonth: (activeMonth) => set({ activeMonth }),
       setTimerTask: (timerTaskId) => set({ timerTaskId }),
       toggleDark: () => set((s) => ({ isDarkMode: !s.isDarkMode })),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

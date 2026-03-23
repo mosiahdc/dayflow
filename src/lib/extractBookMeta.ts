@@ -37,7 +37,7 @@ export async function extractPdfMeta(file: File): Promise<BookMeta> {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      await page.render({ canvasContext: ctx as CanvasRenderingContext2D, viewport }).promise;
+      await page.render({ canvas, canvasContext: ctx as CanvasRenderingContext2D, viewport }).promise;
       coverDataUrl = canvas.toDataURL('image/jpeg', 0.80);
     }
   } catch (e) {

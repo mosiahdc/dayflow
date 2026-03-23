@@ -44,6 +44,10 @@ interface DocumentStore {
   deleteDocument: (id: string) => Promise<void>;
   deleteFileOnly: (id: string) => Promise<void>;
   getSignedUrl: (filePath: string) => Promise<string | null>;
+  updateStatus: (id: string, status: 'queue' | 'reading' | 'finished', extra?: { startedAt?: string | null; finishedAt?: string | null }) => Promise<void>;
+  updateDates: (id: string, startedAt: string | null, finishedAt: string | null) => Promise<void>;
+  updateAuthor: (id: string, author: string) => Promise<void>;
+  updatePageCountAndCover: (id: string, pageCount: number, coverDataUrl: string | null) => Promise<void>;
 }
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
@@ -175,7 +179,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     const maxThisWeek: Record<string, number> = {};
     for (const row of thisWeek) {
       const cur = row.pages_reached ?? 0;
-      if (!(row.document_id in maxThisWeek) || cur > maxThisWeek[row.document_id]) {
+      if (!(row.document_id in maxThisWeek) || cur > (maxThisWeek[row.document_id] ?? 0)) {
         maxThisWeek[row.document_id] = cur;
       }
     }
@@ -276,7 +280,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }));
   },
 
-  updateStatus: async (id, status, extra = {}) => {
+  updateStatus: async (id: string, status: 'queue' | 'reading' | 'finished', extra: { startedAt?: string | null; finishedAt?: string | null } = {}) => {
     const now = new Date().toISOString();
     const todayDate = localDateStr(); // local date, not UTC
     const patch: Record<string, unknown> = { status, updated_at: now };
@@ -305,21 +309,21 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
     }));
   },
 
-  updateDates: async (id, startedAt, finishedAt) => {
+  updateDates: async (id: string, startedAt: string | null, finishedAt: string | null) => {
     await supabase.from('documents').update({ started_at: startedAt, finished_at: finishedAt }).eq('id', id);
     set((s) => ({
       documents: s.documents.map((d) => d.id === id ? { ...d, startedAt, finishedAt } : d),
     }));
   },
 
-  updateAuthor: async (id, author) => {
+  updateAuthor: async (id: string, author: string) => {
     await supabase.from('documents').update({ author }).eq('id', id);
     set((s) => ({
       documents: s.documents.map((d) => d.id === id ? { ...d, author } : d),
     }));
   },
 
-  updatePageCountAndCover: async (id, pageCount, coverDataUrl) => {
+  updatePageCountAndCover: async (id: string, pageCount: number, coverDataUrl: string | null) => {
     // Store the base64 data URL directly in cover_url — avoids storage bucket
     // permissions issues. The thumbnail is ~15-30KB so well within column limits.
     const coverUrl = coverDataUrl ?? null;

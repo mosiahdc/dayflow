@@ -50,11 +50,10 @@ function SortablePriorityRow({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, border: '1px solid var(--df-border)', background: 'var(--df-surface2)' }}
       className={`flex items-center gap-2 p-2 rounded-lg
         ${item.done ? 'opacity-50' : ''}
         ${isDragging ? 'opacity-40 z-50' : ''}`}
-      css={{ border: '1px solid var(--df-border)', background: 'var(--df-surface2)' } as React.CSSProperties}
     >
       {/* Drag handle */}
       <div

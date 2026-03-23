@@ -6,6 +6,8 @@ import { useHighlightStore } from '@/store/highlightStore';
 import { HIGHLIGHT_COLORS } from '@/store/highlightStore';
 import { pdfjs } from 'react-pdf';
 import type { Document } from '@/types';
+import type { DocBookmark } from '@/store/bookmarkStore';
+import type { Highlight } from '@/store/highlightStore';
 
 const PdfReader = lazy(() => import('./PdfReader'));
 const EpubReader = lazy(() => import('./EpubReader'));
@@ -35,8 +37,8 @@ function ReaderSidebar({
   doc: Document;
   currentPage: number; totalPages: number;
   outline: Chapter[];
-  bookmarks: ReturnType<typeof useBookmarkStore>['byDoc'][string];
-  highlights: ReturnType<typeof useHighlightStore>['highlights'];
+  bookmarks: DocBookmark[];
+  highlights: Highlight[];
   pdfUrl: string | null;
   epubIframeRef: React.RefObject<HTMLIFrameElement | null>;
   fileType: 'pdf' | 'epub';
@@ -47,8 +49,8 @@ function ReaderSidebar({
   onUpdateHighlightNote: (id: string, note: string) => void;
   onDeleteHighlight: (id: string) => void;
   onClose: () => void;
-  initialTab?: SidebarTab;
-  onSearchPhraseChange?: (phrase: string) => void;
+  initialTab?: SidebarTab | undefined;
+  onSearchPhraseChange?: ((phrase: string) => void) | undefined;
 }) {
   const [tab, setTab] = useState<SidebarTab>(initialTab ?? 'toc');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -92,7 +94,7 @@ function ReaderSidebar({
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const tc = await page.getTextContent();
-          const text = tc.items.map((item: { str?: string }) => item.str ?? '').join(' ');
+          const text = tc.items.map((item: any) => item.str ?? '').join(' ');
           const lower = text.toLowerCase();
           let idx = 0;
           while ((idx = lower.indexOf(needle, idx)) !== -1) {
@@ -104,7 +106,7 @@ function ReaderSidebar({
           if (found.length >= 200) break;
         }
         setSearchResults(found); setSearchIdx(0);
-        if (found.length > 0) onJumpPage(found[0].page);
+        if (found.length > 0) onJumpPage(found[0]!.page);
       } catch (e) { console.warn('Search failed:', e); }
       finally { setSearching(false); setSearched(true); }
     } else {
@@ -214,7 +216,7 @@ function ReaderSidebar({
             </p>
             {!bookmarks || bookmarks.length === 0
               ? <p className="text-[10px]" style={{ color: 'var(--df-border2)' }}>No bookmarks yet</p>
-              : bookmarks.map(bm => (
+              : bookmarks.map((bm: DocBookmark) => (
                 <div key={bm.id} className="flex items-center justify-between gap-1 group py-0.5">
                   <button
                     onClick={() => bm.cfi ? onJumpCfi(bm.cfi) : bm.page != null && onJumpPage(bm.page)}
@@ -244,7 +246,7 @@ function ReaderSidebar({
               <p className="text-[10px] mt-1" style={{ color: 'var(--df-border2)' }}>Select text to highlight</p>
             </div>
           ) : (
-            docHighlights.map(h => (
+            docHighlights.map((h: Highlight) => (
               <div key={h.id} className="border-b group"
                 style={{ borderBottomColor: 'var(--df-border)', borderBottomWidth: 1, borderBottomStyle: 'solid' }}>
                 {/* Jump to location */}
@@ -632,7 +634,7 @@ export default function DocumentReader({ doc, onClose, initialPage, initialSpine
         documentId: doc.id, documentTitle: docTitle,
         text: '__page_note__',
         note: noteText,
-        color: HIGHLIGHT_COLORS[0].value,
+        color: HIGHLIGHT_COLORS[0]?.value ?? '#FBBF24',
         page: doc.fileType === 'pdf' ? currentPage : null,
         spineIndex: currentSpineIndex,
       });
@@ -816,7 +818,7 @@ export default function DocumentReader({ doc, onClose, initialPage, initialSpine
                   .filter(h => h.documentId === doc.id && h.page === currentPage)
                   .map(h => ({ text: h.text, color: h.color }))}
                 jumpTo={jumpToPage} onJumpHandled={() => setJumpToPage(null)}
-                searchPhrase={activeSearchPhrase || undefined} />
+                searchPhrase={activeSearchPhrase ? activeSearchPhrase : undefined} />
             </Suspense>
           )}
           {loadingState === 'ready' && doc.fileType === 'epub' && epubBlob && (
@@ -832,7 +834,7 @@ export default function DocumentReader({ doc, onClose, initialPage, initialSpine
                 onHighlight={handleHighlight}
                 chapterHighlights={visibleHighlights
                   .filter(h => h.documentId === doc.id && h.spineIndex != null)
-                  .map(h => ({ text: h.text, color: h.color, spineIndex: h.spineIndex! }))}
+                  .map((h: Highlight) => ({ text: h.text, color: h.color, spineIndex: h.spineIndex! }))}
                 externalIframeRef={epubIframeRef}
                 jumpToHref={jumpToHref} onJumpHrefHandled={() => setJumpToHref(null)}
                 jumpToCfi={jumpToCfi} onJumpCfiHandled={() => setJumpToCfi(null)} />

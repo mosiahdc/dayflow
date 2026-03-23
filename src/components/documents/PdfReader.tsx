@@ -24,7 +24,7 @@ interface Props {
   pageHighlights?: HighlightItem[];
   jumpTo?: number | null;
   onJumpHandled?: () => void;
-  searchPhrase?: string; // flash-highlight this phrase on the current page
+  searchPhrase?: string | undefined; // flash-highlight this phrase on the current page
 }
 
 // Use pdfjs to find text positions and return bounding rects for matched text
@@ -58,6 +58,7 @@ async function getHighlightRects(
     const vp = page.getViewport({ scale });
 
     const textContent = await page.getTextContent();
+    const items2 = textContent.items as { str: string; transform: number[]; width: number; height: number; hasEOL?: boolean; }[];
 
     // Build item-level position list (not char-level — more reliable)
     interface ItemMeta { str: string; x: number; y: number; w: number; h: number; }
@@ -70,7 +71,7 @@ async function getHighlightRects(
       if (!raw.str) continue;
       // Use pdfjs viewport's own transform to convert PDF coords → CSS pixel coords.
       // convertToViewportPoint handles the Y-axis flip and scale correctly.
-      const [, , , , tx, ty] = raw.transform;
+      const [, , , , tx = 0, ty = 0] = raw.transform;
       const [cssX, cssYBottom] = vp.convertToViewportPoint(tx, ty);
       // cssYBottom is the bottom of the text (pdfjs flips Y so baseline maps to bottom)
       // Subtract scaled height to get the top
@@ -116,7 +117,7 @@ async function getHighlightRects(
       // Group into lines by Y position
       const lines: ItemMeta[][] = [];
       for (const item of affectedItems) {
-        const existing = lines.find(l => l.length > 0 && Math.abs(l[0]!.y - item.y) < item.h * 0.5);
+        const existing = lines.find(l => l.length > 0 && Math.abs((l[0]?.y ?? 0) - item.y) < item.h * 0.5);
         if (existing) existing.push(item);
         else lines.push([item]);
       }

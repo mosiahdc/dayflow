@@ -46,13 +46,13 @@ export function parseBookFilename(rawName: string): ParsedBook {
   // Starts with _OceanofPDF.com_ (case-insensitive, any variant like OceanPDF etc.)
   const oceanMatch = name.match(/^_[^_]*oceanofpdf[^_]*_(.+)$/i);
   if (oceanMatch) {
-    const rest = oceanMatch[1]; // e.g. "Before_the_Coffee_Gets_Cold_1_-_Toshikazu_Kawaguchi"
+    const rest = oceanMatch[1] ?? ''; // e.g. "Before_the_Coffee_Gets_Cold_1_-_Toshikazu_Kawaguchi"
 
     // Split on " - " or "_-_" separator between title and author
     const sepMatch = rest.match(/^(.+?)(?:_-_|-\s+|\s+-\s+)(.+)$/);
     if (sepMatch) {
-      const titlePart  = sepMatch[1].replace(/_/g, ' ').trim();
-      const authorPart = sepMatch[2].replace(/_/g, ' ').trim();
+      const titlePart  = (sepMatch[1] ?? '').replace(/_/g, ' ').trim();
+      const authorPart = (sepMatch[2] ?? '').replace(/_/g, ' ').trim();
 
       const titleWords  = titlePart.split(/\s+/);
       const authorWords = authorPart.split(/\s+/);
@@ -73,8 +73,8 @@ export function parseBookFilename(rawName: string): ParsedBook {
     // Check for " - " or "_-_" separator
     const sepMatch = name.match(/^(.+?)(?:_-_|-\s+|\s+-\s+)(.+)$/);
     if (sepMatch) {
-      const titleWords  = sepMatch[1].replace(/_/g, ' ').trim().split(/\s+/);
-      const authorWords = sepMatch[2].replace(/_/g, ' ').trim().split(/\s+/);
+      const titleWords  = (sepMatch[1] ?? '').replace(/_/g, ' ').trim().split(/\s+/);
+      const authorWords = (sepMatch[2] ?? '').replace(/_/g, ' ').trim().split(/\s+/);
       return {
         title:  toTitleCase(titleWords),
         author: toTitleCase(authorWords),

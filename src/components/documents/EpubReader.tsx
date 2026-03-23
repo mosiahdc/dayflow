@@ -11,7 +11,7 @@ interface ChapterHighlight { text: string; color: string; spineIndex: number; }
 
 interface Props {
   blob: Blob;
-  initialCfi?: string;
+  initialCfi?: string | undefined;
   onLocationChange: (cfi: string) => void;
   onTotalLocations: (total: number) => void;
   onOutline?: (items: EpubOutlineItem[]) => void;

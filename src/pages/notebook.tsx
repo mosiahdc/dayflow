@@ -171,7 +171,7 @@ export default function NotebookPage() {
 
   const grouped = filtered.reduce<Record<string, { title: string; items: Highlight[] }>>((acc, h) => {
     if (!acc[h.documentId]) acc[h.documentId] = { title: h.documentTitle, items: [] };
-    acc[h.documentId].items.push(h);
+    acc[h.documentId]!.items.push(h);
     return acc;
   }, {});
 
