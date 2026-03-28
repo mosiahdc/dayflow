@@ -12,7 +12,8 @@ export type View =
   | 'library'
   | 'settings'
   | 'documents'
-  | 'notebook';
+  | 'notebook'
+  | 'weekly_review';
 
 interface UIStore {
   activeView: View;

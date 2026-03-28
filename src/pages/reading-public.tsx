@@ -17,7 +17,16 @@ interface PublicBook {
   finished_at: string | null;
 }
 
-const COLORS = ['#4F6EF7', '#10B981', '#F59E0B', '#EC4899', '#7C3AED', '#0D9488', '#EF4444', '#6366F1'];
+const COLORS = [
+  '#4F6EF7',
+  '#10B981',
+  '#F59E0B',
+  '#EC4899',
+  '#7C3AED',
+  '#0D9488',
+  '#EF4444',
+  '#6366F1',
+];
 
 function getColor(id: string) {
   return COLORS[id.charCodeAt(0) % COLORS.length] ?? '#4F6EF7';
@@ -29,18 +38,39 @@ function Cover({ book, size = 72 }: { book: PublicBook; size?: number }) {
       <img
         src={book.cover_url}
         alt={book.title}
-        style={{ width: size, height: size * 1.4, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }}
+        style={{
+          width: size,
+          height: size * 1.4,
+          objectFit: 'cover',
+          borderRadius: 6,
+          flexShrink: 0,
+        }}
       />
     );
   }
   return (
     <div
       style={{
-        width: size, height: size * 1.4, borderRadius: 6, background: getColor(book.id),
-        flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6,
+        width: size,
+        height: size * 1.4,
+        borderRadius: 6,
+        background: getColor(book.id),
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 6,
       }}
     >
-      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.9)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-word' }}>
+      <span
+        style={{
+          fontSize: 9,
+          color: 'rgba(255,255,255,0.9)',
+          textAlign: 'center',
+          lineHeight: 1.3,
+          wordBreak: 'break-word',
+        }}
+      >
         {book.title}
       </span>
     </div>
@@ -49,12 +79,20 @@ function Cover({ book, size = 72 }: { book: PublicBook; size?: number }) {
 
 function fmt(d: string | null) {
   if (!d) return '—';
-  try { return format(parseISO(d), 'MMM d, yyyy'); } catch { return d; }
+  try {
+    return format(parseISO(d), 'MMM d, yyyy');
+  } catch {
+    return d;
+  }
 }
 
 function readDays(started: string | null, finished: string | null) {
   if (!started || !finished) return null;
-  try { return Math.abs(differenceInDays(parseISO(finished), parseISO(started))); } catch { return null; }
+  try {
+    return Math.abs(differenceInDays(parseISO(finished), parseISO(started)));
+  } catch {
+    return null;
+  }
 }
 
 export default function PublicReadingLog({ userId }: { userId: string }) {
@@ -74,15 +112,23 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
         .eq('status', 'finished')
         .order('finished_at', { ascending: false });
 
-      if (err) { setError('Could not load reading log.'); }
-      else { setBooks((data ?? []) as PublicBook[]); }
+      if (err) {
+        setError('Could not load reading log.');
+      } else {
+        setBooks((data ?? []) as PublicBook[]);
+      }
       setLoading(false);
     }
     load();
   }, [userId]);
 
   const filtered = books
-    .filter(b => !search || b.title.toLowerCase().includes(search.toLowerCase()) || (b.author ?? '').toLowerCase().includes(search.toLowerCase()))
+    .filter(
+      (b) =>
+        !search ||
+        b.title.toLowerCase().includes(search.toLowerCase()) ||
+        (b.author ?? '').toLowerCase().includes(search.toLowerCase())
+    )
     .sort((a, b) => {
       if (sort === 'title') return a.title.localeCompare(b.title);
       const fa = a.finished_at ?? '';
@@ -92,9 +138,22 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
 
   // Stats
   const totalPages = books.reduce((sum, b) => sum + (b.page_count ?? 0), 0);
-  const authors = new Set(books.map(b => b.author).filter(Boolean));
+  const authors = new Set(books.map((b) => b.author).filter(Boolean));
   const thisYear = new Date().getFullYear().toString();
-  const booksThisYear = books.filter(b => (b.finished_at ?? '').startsWith(thisYear)).length;
+  const booksThisYear = books.filter((b) => (b.finished_at ?? '').startsWith(thisYear)).length;
+
+  function sortBtn(active: boolean): React.CSSProperties {
+    return {
+      padding: '8px 14px',
+      borderRadius: 8,
+      fontSize: 12,
+      cursor: 'pointer',
+      fontWeight: 500,
+      background: active ? '#4F6EF7' : '#1e1e3a',
+      color: active ? '#fff' : '#888899',
+      border: `1px solid ${active ? '#4F6EF7' : '#2d2d4e'}`,
+    };
+  }
 
   const s: Record<string, React.CSSProperties> = {
     page: {
@@ -109,7 +168,13 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
       borderBottom: '1px solid #2d2d4e',
       padding: '24px 20px 20px',
     },
-    logo: { fontSize: 13, fontWeight: 700, color: '#4F6EF7', letterSpacing: '0.08em', textTransform: 'uppercase' as const },
+    logo: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: '#4F6EF7',
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase' as const,
+    },
     title: { fontSize: 22, fontWeight: 700, color: '#e8e8f0', marginTop: 4 },
     subtitle: { fontSize: 13, color: '#888899', marginTop: 4 },
     statsRow: { display: 'flex', gap: 12, flexWrap: 'wrap' as const, marginTop: 16 },
@@ -125,33 +190,45 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
     body: { padding: '20px', maxWidth: 680, margin: '0 auto' },
     controls: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' as const },
     input: {
-      flex: 1, minWidth: 160,
-      background: '#1a1a2e', border: '1px solid #2d2d4e',
-      borderRadius: 8, padding: '8px 12px', fontSize: 13, color: '#e8e8f0', outline: 'none',
+      flex: 1,
+      minWidth: 160,
+      background: '#1a1a2e',
+      border: '1px solid #2d2d4e',
+      borderRadius: 8,
+      padding: '8px 12px',
+      fontSize: 13,
+      color: '#e8e8f0',
+      outline: 'none',
     },
-    sortBtn: (active: boolean): React.CSSProperties => ({
-      padding: '8px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 500,
-      background: active ? '#4F6EF7' : '#1e1e3a',
-      color: active ? '#fff' : '#888899',
-      border: `1px solid ${active ? '#4F6EF7' : '#2d2d4e'}`,
-    }),
+
     bookCard: {
-      display: 'flex', gap: 14, alignItems: 'flex-start',
-      background: '#1a1a2e', border: '1px solid #2d2d4e',
-      borderRadius: 12, padding: 14, marginBottom: 10,
+      display: 'flex',
+      gap: 14,
+      alignItems: 'flex-start',
+      background: '#1a1a2e',
+      border: '1px solid #2d2d4e',
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 10,
     },
     bookTitle: { fontSize: 14, fontWeight: 600, color: '#e8e8f0', lineHeight: 1.4 },
     bookAuthor: { fontSize: 12, color: '#888899', marginTop: 3 },
     bookMeta: { display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' as const },
     badge: {
-      fontSize: 11, color: '#888899',
-      background: '#1e1e3a', border: '1px solid #2d2d4e',
-      borderRadius: 6, padding: '2px 8px',
+      fontSize: 11,
+      color: '#888899',
+      background: '#1e1e3a',
+      border: '1px solid #2d2d4e',
+      borderRadius: 6,
+      padding: '2px 8px',
     },
     finishedBadge: {
-      fontSize: 11, color: '#10B981',
-      background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
-      borderRadius: 6, padding: '2px 8px',
+      fontSize: 11,
+      color: '#10B981',
+      background: 'rgba(16,185,129,0.1)',
+      border: '1px solid rgba(16,185,129,0.3)',
+      borderRadius: 6,
+      padding: '2px 8px',
     },
   };
 
@@ -177,7 +254,9 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
                 <div style={s.statLabel}>This year</div>
               </div>
               <div style={s.stat}>
-                <div style={{ ...s.statNum, color: '#F59E0B' }}>{totalPages > 0 ? totalPages.toLocaleString() : '—'}</div>
+                <div style={{ ...s.statNum, color: '#F59E0B' }}>
+                  {totalPages > 0 ? totalPages.toLocaleString() : '—'}
+                </div>
                 <div style={s.statLabel}>Pages read</div>
               </div>
               <div style={s.stat}>
@@ -194,11 +273,11 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
         {loading && (
           <p style={{ color: '#888899', textAlign: 'center', paddingTop: 40 }}>Loading…</p>
         )}
-        {error && (
-          <p style={{ color: '#EF4444', textAlign: 'center', paddingTop: 40 }}>{error}</p>
-        )}
+        {error && <p style={{ color: '#EF4444', textAlign: 'center', paddingTop: 40 }}>{error}</p>}
         {!loading && !error && books.length === 0 && (
-          <p style={{ color: '#888899', textAlign: 'center', paddingTop: 40 }}>No finished books yet.</p>
+          <p style={{ color: '#888899', textAlign: 'center', paddingTop: 40 }}>
+            No finished books yet.
+          </p>
         )}
 
         {!loading && !error && books.length > 0 && (
@@ -208,23 +287,32 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
                 style={s.input}
                 placeholder="Search by title or author…"
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={(e) => setSearch(e.target.value)}
               />
-              <button style={s.sortBtn(sort === 'finished')} onClick={() => setSort('finished')}>Recently finished</button>
-              <button style={s.sortBtn(sort === 'title')} onClick={() => setSort('title')}>A–Z</button>
+              <button style={sortBtn(sort === 'finished')} onClick={() => setSort('finished')}>
+                Recently finished
+              </button>
+              <button style={sortBtn(sort === 'title')} onClick={() => setSort('title')}>
+                A–Z
+              </button>
             </div>
 
             {filtered.length === 0 && (
-              <p style={{ color: '#888899', textAlign: 'center', padding: '30px 0' }}>No results.</p>
+              <p style={{ color: '#888899', textAlign: 'center', padding: '30px 0' }}>
+                No results.
+              </p>
             )}
 
             {filtered.map((book, i) => {
               const days = readDays(book.started_at, book.finished_at);
               return (
-                <div key={book.id} style={{
-                  ...s.bookCard,
-                  animationDelay: `${i * 30}ms`,
-                }}>
+                <div
+                  key={book.id}
+                  style={{
+                    ...s.bookCard,
+                    animationDelay: `${i * 30}ms`,
+                  }}
+                >
                   <Cover book={book} size={56} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={s.bookTitle}>{book.title}</div>
@@ -237,7 +325,9 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
                         <span style={s.badge}>Started {fmt(book.started_at)}</span>
                       )}
                       {days !== null && (
-                        <span style={s.badge}>{days === 0 ? 'Same day' : `${days}d to finish`}</span>
+                        <span style={s.badge}>
+                          {days === 0 ? 'Same day' : `${days}d to finish`}
+                        </span>
                       )}
                       {book.page_count && (
                         <span style={s.badge}>{book.page_count.toLocaleString()} pages</span>
