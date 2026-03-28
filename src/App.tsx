@@ -14,6 +14,10 @@ import SettingsPage from '@/pages/settings';
 import LibraryPage from '@/pages/library';
 import DocumentsPage from '@/pages/documents';
 import TimerOverlay from '@/components/planner/TimerOverlay';
+import WeeklyReview from '@/components/planner/WeeklyReview';
+import PublicReadingLog from '@/pages/reading-public';
+import OfflineBanner from '@/components/OfflineBanner';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
 import type { Session } from '@supabase/supabase-js';
 
@@ -23,6 +27,7 @@ function AuthenticatedApp() {
   const { needRefresh, updateServiceWorker } = useRegisterSW();
 
   useSupabaseRealtime();
+  useOfflineSync();
 
   const desktopTabs: { view: View; label: string; badge?: boolean }[] = [
     { view: 'day', label: 'Day' },
@@ -33,6 +38,7 @@ function AuthenticatedApp() {
     { view: 'fasting', label: '🕐 Fast' },
     { view: 'documents', label: '📖 Read', badge: docsNewBadge },
     { view: 'library', label: '📚' },
+    { view: 'weekly_review', label: '📋 Review' },
     { view: 'settings', label: '⚙️' },
   ];
 
@@ -46,6 +52,7 @@ function AuthenticatedApp() {
     { view: 'habits', label: 'Habits', icon: '✅' },
     { view: 'fasting', label: 'Fast', icon: '⏱️' },
     { view: 'documents', label: 'Read', icon: '📖', badge: docsNewBadge },
+    { view: 'weekly_review', label: 'Review', icon: '📋' },
   ];
 
   const [showMoreSheet, setShowMoreSheet] = useState(false);
@@ -72,6 +79,7 @@ function AuthenticatedApp() {
       className="min-h-screen flex flex-col"
       style={{ background: 'var(--df-bg)', paddingTop: 'env(safe-area-inset-top)' }}
     >
+      <OfflineBanner />
       {/* ── Desktop top nav ── */}
       <nav
         className="hidden md:flex items-center gap-2 px-4 py-2 border-b"
@@ -183,6 +191,7 @@ function AuthenticatedApp() {
           {activeView === 'fasting' && <FastingPage />}
           {activeView === 'library' && <LibraryPage />}
           {activeView === 'settings' && <SettingsPage />}
+          {activeView === 'weekly_review' && <WeeklyReview />}
         </main>
       )}
 
@@ -291,6 +300,13 @@ export default function App() {
   const { isDarkMode } = useUIStore();
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
+
+  // ── Public reading log route: /#/reading/<userId> ──────────────────────
+  const hash = window.location.hash; // e.g. "#/reading/abc-123"
+  const publicMatch = hash.match(/^#\/reading\/([^/?#]+)/);
+  if (publicMatch) {
+    return <PublicReadingLog userId={publicMatch[1]!} />;
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {

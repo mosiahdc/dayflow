@@ -4,12 +4,14 @@ import { useDocumentStore } from '@/store/documentStore';
 import { useHighlightStore } from '@/store/highlightStore';
 import { useReadingGoalStore } from '@/store/readingGoalStore';
 import DocumentReader from '@/components/documents/DocumentReader';
+import MonthlyRecapCard from '@/components/documents/MonthlyRecapCard';
 import type { Document } from '@/types';
 import { extractPdfMeta, extractEpubMeta } from '@/lib/extractBookMeta';
 import { parseBookFilename } from '@/lib/parseBookFilename';
 import { usePagination, PAGE_SIZE } from '@/hooks/usePagination';
 import Pagination from '@/components/Pagination';
 import NotebookPage from './notebook';
+import { supabase } from '@/lib/supabase';
 import { format, parseISO, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 
 type ReadTab = 'insight' | 'queue' | 'reading' | 'archive' | 'notebook';
@@ -859,8 +861,24 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
   const [dateDocId, setDateDocId] = useState<string | null>(null);
   const [notesDoc, setNotesDoc] = useState<Document | null>(null);
   const [noteDocId, setNoteDocId] = useState<string | null>(null);
+  const [showRecap, setShowRecap] = useState(false);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   useEffect(() => { fetchHighlights(); }, [fetchHighlights]);
+
+  // Build share link lazily on first click
+  async function handleShare() {
+    if (shareLink) {
+      navigator.clipboard.writeText(shareLink).then(() => { setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); });
+      return;
+    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const link = `${window.location.origin}${window.location.pathname}#/reading/${user.id}`;
+    setShareLink(link);
+    navigator.clipboard.writeText(link).then(() => { setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); });
+  }
 
   const finished = docs.filter(d => d.status === 'finished');
 
@@ -901,7 +919,17 @@ function ArchiveTab({ docs, onOpenDoc }: { docs: Document[]; onOpenDoc: (d: Docu
       <div style={{ textAlign:'center',marginBottom:20 }}>
         <h1 style={{ fontSize:22,fontWeight:500,color:'var(--df-text)',marginBottom:4 }}>Reading Timeline</h1>
         <p style={{ fontSize:13,color:'var(--df-muted)' }}>A chronological journey through your finished books.</p>
+        <div style={{ display:'flex',gap:8,justifyContent:'center',marginTop:12,flexWrap:'wrap' }}>
+          <button onClick={() => setShowRecap(true)} style={{ ...btnPrimary, fontSize:12 }}>
+            📊 Monthly Recap
+          </button>
+          <button onClick={handleShare} style={{ ...btnOutline, fontSize:12 }}>
+            {shareCopied ? '✓ Link copied!' : '🔗 Share Reading Log'}
+          </button>
+        </div>
       </div>
+
+      {showRecap && <MonthlyRecapCard documents={docs} onClose={() => setShowRecap(false)} />}
 
       {/* Filter bar */}
       <div style={{ display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap' }}>

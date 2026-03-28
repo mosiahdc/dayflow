@@ -20,6 +20,7 @@ const mapEntry = (t: Record<string, unknown>): HabitEntry => ({
   date: t.date as string,
   completed: t.completed as boolean,
   ...(t.completed_at ? { completedAt: t.completed_at as string } : {}),
+  ...(t.skip_reason ? { skipReason: t.skip_reason as string } : {}),
 });
 
 interface HabitStore {
@@ -31,6 +32,7 @@ interface HabitStore {
   fetchAllEntries: () => Promise<void>;
   toggleEntry: (habitId: string, date: string) => Promise<void>;
   markHabitDoneByTitle: (title: string, date: string) => Promise<void>;
+  setSkipReason: (habitId: string, date: string, reason: string) => Promise<void>;
   addHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'userId'>) => Promise<void>;
   updateHabit: (
     id: string,
@@ -58,7 +60,6 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     const { data } = await supabase
       .from('habit_entries')
       .select('*')
-      .eq('completed', true)
       .order('date', { ascending: false });
     set({ entries: (data ?? []).map(mapEntry) });
   },
@@ -87,6 +88,31 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
         .insert({ habit_id: habitId, date, user_id: user.id, completed: true })
         .select()
         .single();
+      if (data) {
+        const mapped = mapEntry(data);
+        set((s) => ({
+          weekEntries: [...s.weekEntries, mapped],
+          entries: [...s.entries, mapped],
+        }));
+      }
+    }
+  },
+
+  setSkipReason: async (habitId: string, date: string, reason: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const existing = get().weekEntries.find(e => e.habitId === habitId && e.date === date);
+    if (existing) {
+      await supabase.from('habit_entries').update({ skip_reason: reason }).eq('id', existing.id);
+      set((s) => ({
+        weekEntries: s.weekEntries.map(e => e.id === existing.id ? { ...e, skipReason: reason } : e),
+        entries: s.entries.map(e => e.id === existing.id ? { ...e, skipReason: reason } : e),
+      }));
+    } else {
+      // Create a new incomplete entry with the skip reason
+      const { data } = await supabase.from('habit_entries')
+        .insert({ habit_id: habitId, date, user_id: user.id, completed: false, skip_reason: reason })
+        .select().single();
       if (data) {
         const mapped = mapEntry(data);
         set((s) => ({

@@ -40,17 +40,43 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Cache the app shell for offline
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/supabase/, /^\/functions/],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Supabase REST API — NetworkFirst with 24h cache fallback
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24,
-              },
-              networkTimeoutSeconds: 10,
+              cacheName: 'supabase-rest',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 },
+              networkTimeoutSeconds: 8,
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Supabase Auth — NetworkOnly (never cache auth tokens)
+            urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*/i,
+            handler: 'NetworkOnly',
+          },
+          {
+            // Supabase Storage (book covers) — CacheFirst, 7 days
+            urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'supabase-storage',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Google Fonts and other CDN assets
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
         ],

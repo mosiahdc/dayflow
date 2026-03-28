@@ -21,7 +21,8 @@ export type View =
   | 'library'
   | 'settings'
   | 'documents'
-  | 'notebook';
+  | 'notebook'
+  | 'weekly_review';
 export type Priority = 'high' | 'medium' | 'low';
 
 // ── Category color map ────────────────────────────────────────────────────────
@@ -86,6 +87,7 @@ export interface HabitEntry {
   date: string;
   completed: boolean;
   completedAt?: string | undefined;
+  skipReason?: string | undefined;
 }
 
 // ── Day template ──────────────────────────────────────────────────────────────

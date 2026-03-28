@@ -39,6 +39,7 @@ function SortableHabitRow({
   allEntries,
   dates,
   onToggle,
+  onSkip,
   onDelete,
   onEdit,
 }: {
@@ -47,6 +48,7 @@ function SortableHabitRow({
   allEntries: HabitEntry[];
   dates: { date: string; day: DayOfWeek; label: string }[];
   onToggle: (habitId: string, date: string) => void;
+  onSkip: (habitId: string, date: string) => void;
   onDelete: (id: string) => void;
   onEdit: (habit: Habit) => void;
 }) {
@@ -114,7 +116,17 @@ function SortableHabitRow({
             return (
               <button
                 key={date}
-                onClick={() => isTarget && onToggle(habit.id, date)}
+                onClick={() => {
+                  if (!isTarget) return;
+                  const today = format(new Date(), 'yyyy-MM-dd');
+                  const isPast = date < today;
+                  // Past uncompleted target day → prompt skip reason
+                  if (isPast && !completed) {
+                    onSkip(habit.id, date);
+                  } else {
+                    onToggle(habit.id, date);
+                  }
+                }}
                 className="w-7 h-7 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-all"
                 style={{
                   opacity: !isTarget ? 0.2 : 1,
@@ -124,7 +136,10 @@ function SortableHabitRow({
                   color: completed ? '#fff' : 'transparent',
                 }}
               >
-                {completed && '✓'}
+                {completed ? '✓' : (() => {
+                  const skipEntry = entries.find(e => e.habitId === habit.id && e.date === date && !e.completed && e.skipReason);
+                  return skipEntry ? <span style={{ fontSize:8, color:'var(--df-amber)' }}>!</span> : null;
+                })()}
               </button>
             );
           })}
@@ -186,6 +201,7 @@ export default function HabitTracker() {
     fetchEntries,
     fetchAllEntries,
     toggleEntry,
+    setSkipReason,
     deleteHabit,
   } = useHabitStore();
 
@@ -193,6 +209,9 @@ export default function HabitTracker() {
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | undefined>();
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = last week, etc.
+  const [skipTarget, setSkipTarget] = useState<{ habitId: string; date: string } | null>(null);
+  const [skipInput, setSkipInput] = useState('');
+  const [showPatterns, setShowPatterns] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -266,6 +285,11 @@ export default function HabitTracker() {
   function handleEdit(habit: Habit) {
     setEditingHabit(habit);
     setShowForm(true);
+  }
+
+  function handleSkip(habitId: string, date: string) {
+    setSkipTarget({ habitId, date });
+    setSkipInput('');
   }
 
   function handleFormClose() {
@@ -383,6 +407,7 @@ export default function HabitTracker() {
                     allEntries={entries}
                     dates={weekDates}
                     onToggle={toggleEntry}
+                    onSkip={handleSkip}
                     onDelete={deleteHabit}
                     onEdit={handleEdit}
                   />
@@ -397,6 +422,125 @@ export default function HabitTracker() {
       {showForm && (
         <HabitForm onClose={handleFormClose} {...(editingHabit ? { editing: editingHabit } : {})} />
       )}
+
+      {/* Skip Reason Modal */}
+      {skipTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setSkipTarget(null)}
+        >
+          <div
+            className="rounded-xl p-5 w-80 flex flex-col gap-3"
+            style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-white">Why did you skip?</p>
+            <div className="flex flex-wrap gap-2">
+              {['Too tired', 'No time', 'Forgot', 'Was sick', 'Out of town', 'Other'].map(preset => (
+                <button
+                  key={preset}
+                  onClick={() => setSkipInput(preset)}
+                  className="text-xs px-2 py-1 rounded-full border transition-colors"
+                  style={{
+                    borderColor: skipInput === preset ? 'var(--df-amber)' : 'var(--df-border2)',
+                    color: skipInput === preset ? 'var(--df-amber)' : 'var(--df-muted)',
+                    background: skipInput === preset ? 'rgba(var(--df-amber-rgb, 245,158,11),0.1)' : 'transparent',
+                  }}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <input
+              type="text"
+              value={skipInput}
+              onChange={e => setSkipInput(e.target.value)}
+              onKeyDown={async e => {
+                if (e.key === 'Enter' && skipInput.trim()) {
+                  await setSkipReason(skipTarget.habitId, skipTarget.date, skipInput.trim());
+                  setSkipTarget(null);
+                }
+              }}
+              placeholder="Or type a custom reason…"
+              className="text-sm rounded-lg px-3 py-2 outline-none"
+              style={{ background: 'var(--df-surface2)', border: '1px solid var(--df-border2)', color: 'var(--df-text)' }}
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setSkipTarget(null)}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ color: 'var(--df-muted)', background: 'var(--df-border)' }}
+              >
+                Skip for now
+              </button>
+              <button
+                onClick={async () => {
+                  if (!skipInput.trim()) return;
+                  await setSkipReason(skipTarget.habitId, skipTarget.date, skipInput.trim());
+                  setSkipTarget(null);
+                }}
+                className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                style={{ background: 'var(--df-amber, #f59e0b)', color: '#fff', opacity: skipInput.trim() ? 1 : 0.5 }}
+              >
+                Save Reason
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Skip Patterns Section */}
+      {(() => {
+        const allSkipped = entries.filter(e => !e.completed && e.skipReason);
+        if (allSkipped.length === 0) return null;
+        const patternsByHabit = habits.map(h => {
+          const reasons = allSkipped.filter(e => e.habitId === h.id).map(e => e.skipReason!);
+          if (reasons.length === 0) return null;
+          const counts: Record<string, number> = {};
+          reasons.forEach(r => { counts[r] = (counts[r] ?? 0) + 1; });
+          return { habit: h, counts };
+        }).filter(Boolean) as { habit: Habit; counts: Record<string, number> }[];
+        if (patternsByHabit.length === 0) return null;
+        return (
+          <div style={{ borderTop: '1px solid var(--df-border)' }}>
+            <button
+              className="w-full flex items-center justify-between px-4 py-2 text-xs font-semibold"
+              style={{ color: 'var(--df-muted)', background: 'var(--df-surface2)' }}
+              onClick={() => setShowPatterns(p => !p)}
+            >
+              <span>📊 Skip Patterns</span>
+              <span>{showPatterns ? '▲' : '▼'}</span>
+            </button>
+            {showPatterns && (
+              <div className="px-4 py-3 flex flex-col gap-3">
+                {patternsByHabit.map(({ habit, counts }) => (
+                  <div key={habit.id} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-4 rounded-full" style={{ backgroundColor: habit.color }} />
+                      <span className="text-xs font-semibold text-white">{habit.title}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 pl-3">
+                      {Object.entries(counts)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([reason, count]) => (
+                          <span
+                            key={reason}
+                            className="text-[11px] px-2 py-0.5 rounded-full"
+                            style={{ background: 'var(--df-border)', color: 'var(--df-muted)' }}
+                          >
+                            {reason} ×{count}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

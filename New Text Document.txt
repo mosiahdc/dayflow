@@ -1,0 +1,6 @@
+Client ID
+757399978765-hi85gonj9g7anml67s49fafvivveq60m.apps.googleusercontent.com
+
+
+Client secret
+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

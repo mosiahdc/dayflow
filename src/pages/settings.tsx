@@ -1,4 +1,5 @@
 import { useNotificationStore } from '@/store/notificationStore';
+import CalendarSync from '@/components/CalendarSync';
 
 const REMINDER_OPTIONS: { value: 5 | 10 | 15 | 30; label: string }[] = [
   { value: 5, label: '5 minutes before' },
@@ -174,6 +175,9 @@ export default function SettingsPage() {
           </Row>
         )}
       </Section>
+
+      {/* Calendar Sync */}
+      <CalendarSync />
 
       <p className="text-xs text-brand-muted text-center mt-2">
         Settings are saved automatically on this device.
