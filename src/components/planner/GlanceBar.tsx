@@ -109,7 +109,11 @@ export default function GlanceBar({ date }: Props) {
 
   // ── Habits ───────────────────────────────────────────────────────────────
   const dow = DAY_KEYS[new Date(date).getDay()];
-  const todayHabits = habits.filter((h) => h.targetDays.includes(dow as (typeof DAY_KEYS)[number]));
+  const todayHabits = habits.filter((h) => {
+    // Only count habits that existed on this date (created on or before this date)
+    const createdDate = h.createdAt.slice(0, 10);
+    return h.targetDays.includes(dow as (typeof DAY_KEYS)[number]) && createdDate <= date;
+  });
   const completedHabits = weekEntries.filter(
     (e) => e.date === date && e.completed && todayHabits.some((h) => h.id === e.habitId)
   ).length;
@@ -158,11 +162,22 @@ export default function GlanceBar({ date }: Props) {
         <div className="flex items-center gap-2 min-w-0">
           <div className="relative w-8 h-8 shrink-0">
             <svg viewBox="0 0 32 32" className="-rotate-90 w-full h-full">
-              <circle cx="16" cy="16" r="12" fill="none" stroke="var(--df-border2)" strokeWidth="3" />
               <circle
-                cx="16" cy="16" r="12" fill="none"
+                cx="16"
+                cy="16"
+                r="12"
+                fill="none"
+                stroke="var(--df-border2)"
+                strokeWidth="3"
+              />
+              <circle
+                cx="16"
+                cy="16"
+                r="12"
+                fill="none"
                 stroke={taskPct === 100 ? 'var(--df-green)' : 'var(--df-accent)'}
-                strokeWidth="3" strokeLinecap="round"
+                strokeWidth="3"
+                strokeLinecap="round"
                 strokeDasharray={2 * Math.PI * 12}
                 strokeDashoffset={2 * Math.PI * 12 * (1 - taskPct / 100)}
                 className="transition-all duration-500"
@@ -185,7 +200,10 @@ export default function GlanceBar({ date }: Props) {
 
       {/* Divider */}
       {total > 0 && (todayHabits.length > 0 || (active && isToday)) && (
-        <div className="w-px h-8 shrink-0 hidden sm:block" style={{ background: 'var(--df-border)' }} />
+        <div
+          className="w-px h-8 shrink-0 hidden sm:block"
+          style={{ background: 'var(--df-border)' }}
+        />
       )}
 
       {/* Habits */}
@@ -215,18 +233,26 @@ export default function GlanceBar({ date }: Props) {
 
       {/* Fasting divider */}
       {(todayHabits.length > 0 || total > 0) && hasFasting && (
-        <div className="w-px h-8 shrink-0 hidden sm:block" style={{ background: 'var(--df-border)' }} />
+        <div
+          className="w-px h-8 shrink-0 hidden sm:block"
+          style={{ background: 'var(--df-border)' }}
+        />
       )}
 
       {/* Fasting — active (today) */}
       {active && isToday && (
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full df-pulse shrink-0" style={{ background: '#6366f1' }} />
+          <div
+            className="w-2 h-2 rounded-full df-pulse shrink-0"
+            style={{ background: '#6366f1' }}
+          />
           <div>
             <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--df-text)' }}>
               {fmtFastElapsed(active.startedAt)} fasting
             </p>
-            <p className="text-[10px] leading-tight" style={{ color: 'var(--df-muted)' }}>Goal: {active.goalHours}h</p>
+            <p className="text-[10px] leading-tight" style={{ color: 'var(--df-muted)' }}>
+              Goal: {active.goalHours}h
+            </p>
           </div>
         </div>
       )}
@@ -240,7 +266,11 @@ export default function GlanceBar({ date }: Props) {
           <div>
             <p className="text-xs font-semibold leading-tight" style={{ color: 'var(--df-text)' }}>
               {fmtHours(Math.round(totalFastedSecs / 60))} fasted
-              {goalMet && <span className="ml-1 text-[10px]" style={{ color: 'var(--df-green)' }}>✓ goal</span>}
+              {goalMet && (
+                <span className="ml-1 text-[10px]" style={{ color: 'var(--df-green)' }}>
+                  ✓ goal
+                </span>
+              )}
             </p>
             <p className="text-[10px] leading-tight" style={{ color: 'var(--df-muted)' }}>
               {dateSessions.length} session{dateSessions.length > 1 ? 's' : ''}
@@ -264,7 +294,10 @@ export default function GlanceBar({ date }: Props) {
         done === total &&
         todayHabits.length > 0 &&
         completedHabits === todayHabits.length && (
-          <div className="ml-auto text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--df-green)' }}>
+          <div
+            className="ml-auto text-xs font-semibold flex items-center gap-1"
+            style={{ color: 'var(--df-green)' }}
+          >
             <span>✨</span>
             <span>Perfect day!</span>
           </div>
