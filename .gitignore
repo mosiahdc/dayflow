@@ -26,3 +26,7 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+New Text Document.txt
+
+*.json
