@@ -22,7 +22,8 @@ export type View =
   | 'settings'
   | 'documents'
   | 'notebook'
-  | 'weekly_review';
+  | 'weekly_review'
+  | 'trade';
 export type Priority = 'high' | 'medium' | 'low';
 
 // ── Category color map ────────────────────────────────────────────────────────

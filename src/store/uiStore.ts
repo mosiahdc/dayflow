@@ -9,17 +9,14 @@ export type View =
   | 'analytics'
   | 'habits'
   | 'fasting'
-  | 'trade'
+  | 'library'
+  | 'settings'
   | 'documents'
-  | 'notebook';
+  | 'notebook'
+  | 'weekly_review'
+  | 'trade';
 
-export interface PendingDocOpen {
-  documentId: string;
-  page: number | null;
-  spineIndex: number | null;
-}
-
-export interface UIStore {
+interface UIStore {
   activeView: View;
   selectedDate: string;
   weekStart: string;
@@ -27,10 +24,12 @@ export interface UIStore {
   timerTaskId: string | null;
   isDarkMode: boolean;
   sidebarOpen: boolean;
-  docsBadge: boolean;
-  pendingDocOpen: PendingDocOpen | null;
+  docsNewBadge: boolean;
+  pendingDocOpen: { documentId: string; page: number | null; spineIndex: number | null } | null;
   setView: (view: View) => void;
   setDate: (date: string) => void;
+  setWeekStart: (date: string) => void;
+  setActiveMonth: (month: string) => void;
   setTimerTask: (id: string | null) => void;
   toggleDark: () => void;
   toggleSidebar: () => void;
@@ -50,17 +49,19 @@ export const useUIStore = create<UIStore>()(
       timerTaskId: null,
       isDarkMode: window.matchMedia('(prefers-color-scheme: dark)').matches,
       sidebarOpen: true,
-      docsBadge: false,
+      docsNewBadge: true,
       pendingDocOpen: null,
       setView: (activeView) => set({ activeView }),
       setDate: (selectedDate) => set({ selectedDate }),
+      setWeekStart: (weekStart) => set({ weekStart }),
+      setActiveMonth: (activeMonth) => set({ activeMonth }),
       setTimerTask: (timerTaskId) => set({ timerTaskId }),
       toggleDark: () => set((s) => ({ isDarkMode: !s.isDarkMode })),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
       setSidebar: (sidebarOpen) => set({ sidebarOpen }),
-      dismissDocsBadge: () => set({ docsBadge: false }),
+      dismissDocsBadge: () => set({ docsNewBadge: false }),
       openDocAt: (documentId, page, spineIndex) =>
-        set({ pendingDocOpen: { documentId, page, spineIndex }, activeView: 'documents' }),
+        set({ activeView: 'documents', pendingDocOpen: { documentId, page, spineIndex } }),
       clearPendingDocOpen: () => set({ pendingDocOpen: null }),
     }),
     { name: 'dayflow-ui' }
