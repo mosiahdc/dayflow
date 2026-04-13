@@ -45,7 +45,9 @@ const mapTrade = (t: Record<string, unknown>): Trade => ({
 });
 
 // Parse MEXC Excel row format into trade payload
-export function parseMexcRow(row: Record<string, unknown>): Omit<Trade, 'id' | 'userId' | 'createdAt'> | null {
+export function parseMexcRow(
+  row: Record<string, unknown>
+): Omit<Trade, 'id' | 'userId' | 'createdAt'> | null {
   try {
     const futures = (row['Futures'] ?? row['futures'] ?? '') as string;
     if (!futures) return null;
@@ -57,7 +59,7 @@ export function parseMexcRow(row: Record<string, unknown>): Omit<Trade, 'id' | '
       marginMode: String(row['Margin Mode'] ?? row['margin_mode'] ?? 'Cross'),
       avgEntryPrice: parseAmount(row['Avg Entry Price'] ?? row['avg_entry_price']),
       avgClosePrice: parseAmount(row['Avg Close Price'] ?? row['avg_close_price']),
-      direction: (String(row['Direction'] ?? row['direction'] ?? 'Long')) as 'Long' | 'Short',
+      direction: String(row['Direction'] ?? row['direction'] ?? 'Long') as 'Long' | 'Short',
       closingQty: parseAmount(row['Closing Qty (Cont.)'] ?? row['closing_qty']),
       tradingFee: parseAmount(row['Trading Fee'] ?? row['trading_fee']),
       realizedPnl: parseAmount(row['Realized PNL'] ?? row['realized_pnl']),
@@ -91,7 +93,9 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
   },
 
   addTrade: async (trade) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase
       .from('trades')
@@ -115,7 +119,9 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
   },
 
   addTrades: async (trades) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     const rows = trades.map((trade) => ({
       user_id: user.id,

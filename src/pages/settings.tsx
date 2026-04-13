@@ -1,5 +1,13 @@
+import { useState, useEffect } from 'react';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import CalendarSync from '@/components/CalendarSync';
+import { Capacitor } from '@capacitor/core';
+import {
+  isBiometricAvailable,
+  isBiometricLockEnabled,
+  setBiometricLockEnabled,
+} from '@/lib/biometric';
 
 const REMINDER_OPTIONS: { value: 5 | 10 | 15 | 30; label: string }[] = [
   { value: 5, label: '5 minutes before' },
@@ -54,14 +62,6 @@ function Row({
   );
 }
 
-import { useState, useEffect } from 'react';
-import { Capacitor } from '@capacitor/core';
-import {
-  isBiometricAvailable,
-  isBiometricLockEnabled,
-  setBiometricLockEnabled,
-} from '@/lib/biometric';
-
 export default function SettingsPage() {
   const {
     taskRemindersEnabled,
@@ -75,11 +75,63 @@ export default function SettingsPage() {
     update,
   } = useNotificationStore();
 
+  const { initialBalance, setInitialBalance } = useTradeSettingsStore();
+
+  // Local input state so user can type freely before saving
+  const [balanceInput, setBalanceInput] = useState(
+    initialBalance > 0 ? String(initialBalance) : ''
+  );
+  const [balanceSaved, setBalanceSaved] = useState(false);
+
+  const handleSaveBalance = () => {
+    const val = parseFloat(balanceInput);
+    if (isNaN(val) || val < 0) return;
+    setInitialBalance(val);
+    setBalanceSaved(true);
+    setTimeout(() => setBalanceSaved(false), 2000);
+  };
+
   return (
     <div className="max-w-lg mx-auto">
       <h1 className="text-xl font-bold dark:text-white mb-4">⚙️ Settings</h1>
 
-      {/* Task Reminders */}
+      {/* ── Trading ── */}
+      <Section title="📈 Trading">
+        <Row
+          label="Initial Balance"
+          description="Your starting capital for the Project Discipline tracker (USDT)"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={balanceInput}
+              onChange={(e) => {
+                setBalanceInput(e.target.value);
+                setBalanceSaved(false);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveBalance()}
+              placeholder="0.00"
+              className="w-32 text-sm border rounded px-2 py-1.5 text-right
+                dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
+            />
+            <button
+              onClick={handleSaveBalance}
+              className={`text-xs px-3 py-1.5 rounded font-semibold transition-all
+                ${
+                  balanceSaved
+                    ? 'bg-green-500 text-white'
+                    : 'bg-brand-accent text-white hover:opacity-90'
+                }`}
+            >
+              {balanceSaved ? '✓ Saved' : 'Save'}
+            </button>
+          </div>
+        </Row>
+      </Section>
+
+      {/* ── Task Reminders ── */}
       <Section title="🔔 Task Reminders">
         <Row
           label="Enable task reminders"
@@ -110,7 +162,7 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      {/* Daily Planning Reminder */}
+      {/* ── Daily Planning Reminder ── */}
       <Section title="📅 Daily Planning Reminder">
         <Row label="Enable daily reminder" description="Get a notification to plan your day">
           <Toggle
@@ -131,7 +183,7 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      {/* Morning Reminder */}
+      {/* ── Morning Reminder ── */}
       <Section title="🌅 Morning Reminder">
         <Row
           label="Enable morning reminder"
@@ -155,7 +207,7 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      {/* Habit Reminders */}
+      {/* ── Habit Reminders ── */}
       <Section title="✅ Habit Reminders">
         <Row label="Enable habit reminders" description="Daily reminder to check off your habits">
           <Toggle
@@ -176,7 +228,7 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      {/* Calendar Sync */}
+      {/* ── Calendar Sync ── */}
       <CalendarSync />
 
       <p className="text-xs text-brand-muted text-center mt-2">
