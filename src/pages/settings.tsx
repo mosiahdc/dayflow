@@ -75,18 +75,24 @@ export default function SettingsPage() {
     update,
   } = useNotificationStore();
 
-  const { initialBalance, setInitialBalance } = useTradeSettingsStore();
+  const { initialBalance, setInitialBalance, fetchSettings } = useTradeSettingsStore();
 
-  // Local input state so user can type freely before saving
-  const [balanceInput, setBalanceInput] = useState(
-    initialBalance > 0 ? String(initialBalance) : ''
-  );
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  const [balanceInput, setBalanceInput] = useState('');
   const [balanceSaved, setBalanceSaved] = useState(false);
 
-  const handleSaveBalance = () => {
+  // Sync input when store loads
+  useEffect(() => {
+    if (initialBalance > 0) setBalanceInput(String(initialBalance));
+  }, [initialBalance]);
+
+  const handleSaveBalance = async () => {
     const val = parseFloat(balanceInput);
     if (isNaN(val) || val < 0) return;
-    setInitialBalance(val);
+    await setInitialBalance(val);
     setBalanceSaved(true);
     setTimeout(() => setBalanceSaved(false), 2000);
   };

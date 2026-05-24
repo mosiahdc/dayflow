@@ -14,6 +14,7 @@ import SettingsPage from '@/pages/settings';
 import LibraryPage from '@/pages/library';
 import DocumentsPage from '@/pages/documents';
 import TradePage from '@/pages/trade';
+import PlantsPage from '@/pages/plants';
 import TimerOverlay from '@/components/planner/TimerOverlay';
 import WeeklyReview from '@/components/planner/WeeklyReview';
 import PublicReadingLog from '@/pages/reading-public';
@@ -49,6 +50,7 @@ function AuthenticatedApp() {
     { view: 'documents', label: '📖 Read', badge: docsNewBadge },
     { view: 'library', label: '📚' },
     { view: 'trade', label: '📈 Trade' },
+    { view: 'plants', label: '🌱 Plants' },
     { view: 'weekly_review', label: '📋 Review' },
     { view: 'settings', label: '⚙️' },
   ];
@@ -64,6 +66,7 @@ function AuthenticatedApp() {
     { view: 'fasting', label: 'Fast', icon: '⏱️' },
     { view: 'trade', label: 'Trade', icon: '📈' },
     { view: 'documents', label: 'Read', icon: '📖', badge: docsNewBadge },
+    { view: 'plants', label: 'Plants', icon: '🌱' },
     { view: 'weekly_review', label: 'Review', icon: '📋' },
   ];
 
@@ -72,7 +75,6 @@ function AuthenticatedApp() {
 
   const handleNavClick = (view: View) => {
     setView(view);
-    // Always jump back to today when clicking Day, Week, or Month
     if (view === 'day' || view === 'week' || view === 'month') {
       const today = new Date();
       const yyyy = today.getFullYear();
@@ -205,6 +207,7 @@ function AuthenticatedApp() {
           {activeView === 'settings' && <SettingsPage />}
           {activeView === 'weekly_review' && <WeeklyReview />}
           {activeView === 'trade' && <TradePage />}
+          {activeView === 'plants' && <PlantsPage />}
         </main>
       )}
 
@@ -296,7 +299,7 @@ function AuthenticatedApp() {
             >
               More
             </p>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {moreMobileTabs.map(({ view, label, icon, badge }) => (
                 <button
                   key={view}
@@ -305,7 +308,7 @@ function AuthenticatedApp() {
                     setShowMoreSheet(false);
                   }}
                   style={{
-                    flex: 1,
+                    flex: '1 1 calc(33% - 8px)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
@@ -358,7 +361,7 @@ export default function App() {
   const [checking, setChecking] = useState(true);
 
   // ── Public reading log route: /#/reading/<userId> ──────────────────────
-  const hash = window.location.hash; // e.g. "#/reading/abc-123"
+  const hash = window.location.hash;
   const publicMatch = hash.match(/^#\/reading\/([^/?#]+)/);
   if (publicMatch) {
     return <PublicReadingLog userId={publicMatch[1]!} />;
