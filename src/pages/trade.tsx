@@ -4,8 +4,9 @@ import { useTradeStore } from '@/store/tradeStore';
 import TradeCalendar from '@/components/trading/TradeCalendar';
 import TradeList from '@/components/trading/TradeList';
 import ProjectDiscipline from '@/components/trading/ProjectDiscipline';
+import TradeJournal from '@/components/trading/TradeJournal';
 
-type TradeTab = 'discipline' | 'dashboard' | 'trades';
+type TradeTab = 'discipline' | 'journal' | 'dashboard' | 'trades';
 
 export default function TradePage() {
   const { trades, fetchTrades, loading } = useTradeStore();
@@ -25,6 +26,7 @@ export default function TradePage() {
 
   const tabs: { id: TradeTab; label: string }[] = [
     { id: 'discipline', label: '🎯 Project Discipline' },
+    { id: 'journal', label: '📓 Trade Journal' },
     { id: 'dashboard', label: '📊 Dashboard' },
     { id: 'trades', label: '📋 Trades' },
   ];
@@ -35,7 +37,6 @@ export default function TradePage() {
         <h1 className="text-xl font-bold dark:text-white">📈 Trading Journey</h1>
       </div>
 
-      {/* Sub-tab navigation */}
       <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl w-fit">
         {tabs.map(({ id, label }) => (
           <button
@@ -53,12 +54,12 @@ export default function TradePage() {
         ))}
       </div>
 
-      {loading ? (
+      {loading && activeTab !== 'journal' ? (
         <div className="text-center py-12 text-brand-muted text-sm">Loading trades…</div>
       ) : (
         <>
           {activeTab === 'discipline' && <ProjectDiscipline trades={trades} />}
-
+          {activeTab === 'journal' && <TradeJournal />}
           {activeTab === 'dashboard' && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -81,7 +82,6 @@ export default function TradePage() {
               <TradeCalendar monthDate={monthDate} trades={trades} />
             </div>
           )}
-
           {activeTab === 'trades' && <TradeList trades={trades} />}
         </>
       )}

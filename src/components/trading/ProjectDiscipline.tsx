@@ -4,7 +4,7 @@ import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 
-const PROJECT_START = '2026-04-12 08:00:00';
+const PROJECT_START = '2026-06-22 00:00:00';
 const MAX_TRADES_PER_DAY = 5;
 
 // UTC+8 offset helper — converts a UTC ISO string to UTC+8 display string
@@ -444,10 +444,31 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
         </StatBox>
 
-        {/* Max trades */}
-        <StatBox label="Max Trades / Day">
-          <p className="text-xl font-bold dark:text-white">{MAX_TRADES_PER_DAY}</p>
-          <p className="text-[10px] text-brand-muted">Discipline limit</p>
+        {/* Weekly Parameters */}
+        <StatBox label="Weekly Parameters">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-0.5">
+            <div>
+              <p className="text-[10px] text-brand-muted">Base margin (10%)</p>
+              <p className="text-base font-bold text-brand-accent">${(balance * 0.1).toFixed(2)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-brand-muted">Leverage</p>
+              <p className="text-base font-bold dark:text-white">500×</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-brand-muted">TP target (+35% ROE)</p>
+              <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                +${(balance * 0.1 * 0.35).toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-brand-muted">Hard SL (−100% ROE)</p>
+              <p className="text-sm font-bold text-red-500 dark:text-red-400">
+                −${(balance * 0.1).toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <p className="text-[10px] text-brand-muted mt-1">Max 3 trades · 1-loss circuit breaker</p>
         </StatBox>
 
         {/* Position Margin */}
