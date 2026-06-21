@@ -44,14 +44,12 @@ const mapTrade = (t: Record<string, unknown>): Trade => ({
   createdAt: t.created_at as string,
 });
 
-// Parse MEXC Excel row format into trade payload
 export function parseMexcRow(
   row: Record<string, unknown>
 ): Omit<Trade, 'id' | 'userId' | 'createdAt'> | null {
   try {
     const futures = (row['Futures'] ?? row['futures'] ?? '') as string;
     if (!futures) return null;
-
     return {
       futures: futures.trim(),
       openTime: String(row['Open Time'] ?? row['open_time'] ?? ''),
@@ -70,26 +68,48 @@ export function parseMexcRow(
   }
 }
 
+const CHUNK_SIZE = 500; // safe batch size for Supabase inserts
+const PAGE_SIZE = 1000; // Supabase max rows per request
+
+// Fetch ALL rows by paginating with .range()
+async function fetchAllTrades(): Promise<Trade[]> {
+  const all: Trade[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('trades')
+      .select('*')
+      .order('close_time', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) break;
+    if (!data || data.length === 0) break;
+    all.push(...data.map(mapTrade));
+    if (data.length < PAGE_SIZE) break; // last page
+    from += PAGE_SIZE;
+  }
+  return all;
+}
+
 interface TradeStore {
   trades: Trade[];
   loading: boolean;
   fetchTrades: () => Promise<void>;
   addTrade: (trade: Omit<Trade, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
-  addTrades: (trades: Omit<Trade, 'id' | 'userId' | 'createdAt'>[]) => Promise<void>;
+  addTrades: (
+    trades: Omit<Trade, 'id' | 'userId' | 'createdAt'>[],
+    onProgress?: (n: number, total: number) => void
+  ) => Promise<void>;
   deleteTrade: (id: string) => Promise<void>;
 }
 
-export const useTradeStore = create<TradeStore>((set, get) => ({
+export const useTradeStore = create<TradeStore>((set) => ({
   trades: [],
   loading: false,
 
   fetchTrades: async () => {
     set({ loading: true });
-    const { data } = await supabase
-      .from('trades')
-      .select('*')
-      .order('close_time', { ascending: false });
-    set({ trades: (data ?? []).map(mapTrade), loading: false });
+    const all = await fetchAllTrades();
+    set({ trades: all, loading: false });
   },
 
   addTrade: async (trade) => {
@@ -118,12 +138,14 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
     if (data) set((s) => ({ trades: [mapTrade(data), ...s.trades] }));
   },
 
-  addTrades: async (trades) => {
+  // Chunked insert — splits large uploads into CHUNK_SIZE batches
+  addTrades: async (trades, onProgress) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    const rows = trades.map((trade) => ({
+
+    const toRow = (trade: Omit<Trade, 'id' | 'userId' | 'createdAt'>) => ({
       user_id: user.id,
       futures: trade.futures,
       open_time: trade.openTime,
@@ -136,11 +158,19 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
       trading_fee: trade.tradingFee,
       realized_pnl: trade.realizedPnl,
       status: trade.status,
-    }));
-    const { data } = await supabase.from('trades').insert(rows).select();
-    if (data) {
-      set((s) => ({ trades: [...data.map(mapTrade), ...s.trades] }));
+    });
+
+    let inserted = 0;
+    for (let i = 0; i < trades.length; i += CHUNK_SIZE) {
+      const chunk = trades.slice(i, i + CHUNK_SIZE);
+      await supabase.from('trades').insert(chunk.map(toRow));
+      inserted += chunk.length;
+      onProgress?.(inserted, trades.length);
     }
+
+    // Reload all trades after bulk insert
+    const all = await fetchAllTrades();
+    set({ trades: all });
   },
 
   deleteTrade: async (id) => {

@@ -19,11 +19,16 @@ function PnlBadge({ pnl }: { pnl: number }) {
   return (
     <span
       className={`text-xs font-bold px-1.5 py-0.5 rounded
-        ${isPos ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-          : isNeg ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-          : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}
+        ${
+          isPos
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            : isNeg
+              ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+              : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+        }`}
     >
-      {isPos ? '+' : ''}{pnl.toFixed(4)}
+      {isPos ? '+' : ''}
+      {pnl.toFixed(4)}
     </span>
   );
 }
@@ -33,8 +38,11 @@ function DirectionBadge({ direction }: { direction: string }) {
   return (
     <span
       className={`text-[10px] font-bold px-1.5 py-0.5 rounded
-        ${isLong ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-          : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}
+        ${
+          isLong
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+        }`}
     >
       {isLong ? '↑ Long' : '↓ Short'}
     </span>
@@ -68,12 +76,18 @@ export default function TradeList({ trades }: Props) {
         return;
       }
       const parsed = rows.map(parseMexcRow).filter(Boolean) as ReturnType<typeof parseMexcRow>[];
-      const valid = parsed.filter((r) => r !== null) as Exclude<ReturnType<typeof parseMexcRow>, null>[];
+      const valid = parsed.filter((r) => r !== null) as Exclude<
+        ReturnType<typeof parseMexcRow>,
+        null
+      >[];
       if (valid.length === 0) {
         setUploadMsg('❌ No valid trades found. Check the file format.');
         return;
       }
-      await addTrades(valid);
+      setUploadMsg(`⏳ Uploading ${valid.length} trades…`);
+      await addTrades(valid, (done, total) => {
+        setUploadMsg(`⏳ Uploading… ${done}/${total}`);
+      });
       await fetchTrades();
       setUploadMsg(`✅ Imported ${valid.length} trade${valid.length > 1 ? 's' : ''}`);
     } catch (err) {
@@ -85,9 +99,7 @@ export default function TradeList({ trades }: Props) {
     }
   };
 
-  const filtered = trades.filter((t) =>
-    t.futures.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = trades.filter((t) => t.futures.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="flex flex-col gap-3">
@@ -131,8 +143,10 @@ export default function TradeList({ trades }: Props) {
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
         {/* Header */}
-        <div className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700"
-          style={{ gridTemplateColumns: '1fr 80px 90px 90px 60px 80px 28px' }}>
+        <div
+          className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700"
+          style={{ gridTemplateColumns: '1fr 80px 90px 90px 60px 80px 28px' }}
+        >
           <span>Symbol / Time</span>
           <span className="text-center">Direction</span>
           <span className="text-right">Entry / Close</span>
@@ -146,7 +160,9 @@ export default function TradeList({ trades }: Props) {
           <div className="py-12 text-center">
             <p className="text-2xl mb-2">📊</p>
             <p className="text-sm text-brand-muted">No trades yet.</p>
-            <p className="text-xs text-brand-muted mt-1">Upload a MEXC file or add trades manually.</p>
+            <p className="text-xs text-brand-muted mt-1">
+              Upload a MEXC file or add trades manually.
+            </p>
           </div>
         ) : (
           <div className="divide-y dark:divide-gray-700 max-h-[520px] overflow-y-auto">
@@ -184,26 +200,37 @@ export default function TradeList({ trades }: Props) {
                 <div className="text-right text-xs dark:text-white">{trade.closingQty}</div>
 
                 {/* Status */}
-                <div className="text-right text-[10px] text-brand-muted truncate">{trade.status}</div>
+                <div className="text-right text-[10px] text-brand-muted truncate">
+                  {trade.status}
+                </div>
 
                 {/* Delete */}
                 <div className="flex justify-end">
                   {confirmDelete === trade.id ? (
                     <div className="flex gap-0.5">
                       <button
-                        onClick={() => { deleteTrade(trade.id); setConfirmDelete(null); }}
+                        onClick={() => {
+                          deleteTrade(trade.id);
+                          setConfirmDelete(null);
+                        }}
                         className="text-[10px] bg-red-500 text-white px-1 py-0.5 rounded font-semibold"
-                      >Del</button>
+                      >
+                        Del
+                      </button>
                       <button
                         onClick={() => setConfirmDelete(null)}
                         className="text-[10px] text-gray-400 hover:text-gray-600 px-0.5"
-                      >✕</button>
+                      >
+                        ✕
+                      </button>
                     </div>
                   ) : (
                     <button
                       onClick={() => setConfirmDelete(trade.id)}
                       className="text-gray-300 hover:text-red-400 text-sm"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   )}
                 </div>
               </div>
