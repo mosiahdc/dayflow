@@ -7,6 +7,7 @@ import { generateSlots } from '@/lib/intervals';
 import TimeSlot from './TimeSlot';
 import ExportMenu from './ExportMenu';
 import TemplateMenu from './TemplateMenu';
+import ICSImportButton from './ICSImportButton';
 import type { ScheduledTask } from '@/types';
 
 interface Props {
@@ -179,10 +180,7 @@ export default function DayView({ date, scheduledTasks }: Props) {
       style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
     >
       {/* Header — blue accent bar matching wireframe */}
-      <div
-        className="px-3 py-2.5 flex flex-col gap-1.5"
-        style={{ background: 'var(--df-accent)' }}
-      >
+      <div className="px-3 py-2.5 flex flex-col gap-1.5" style={{ background: 'var(--df-accent)' }}>
         <div className="flex items-center justify-between">
           <span className="font-semibold text-sm text-white">📅 Daily Planner</span>
           {total > 0 && (
@@ -194,6 +192,7 @@ export default function DayView({ date, scheduledTasks }: Props) {
         <div className="flex gap-2">
           <TemplateMenu date={date} />
           <ExportMenu date={date} />
+          <ICSImportButton />
         </div>
       </div>
 
