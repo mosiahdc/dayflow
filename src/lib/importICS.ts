@@ -176,19 +176,57 @@ export function parseICS(raw: string): ICSEvent[] {
   return events;
 }
 
-// Fetch ICS from a URL (tries direct, falls back to CORS proxy)
-export async function fetchICS(url: string): Promise<ICSEvent[]> {
-  let text: string;
+// CORS proxies to try in order
+const CORS_PROXIES = [
+  (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url: string) => `https://cors-anywhere.herokuapp.com/${url}`,
+];
+
+async function tryFetch(url: string): Promise<string> {
+  // 1. Try direct (works if the server sends CORS headers — Canvas does for its own feeds)
   try {
-    const res = await fetch(url, { headers: { Accept: 'text/calendar' } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    text = await res.text();
+    const res = await fetch(url, {
+      headers: { Accept: 'text/calendar, */*' },
+      mode: 'cors',
+    });
+    if (res.ok) {
+      const text = await res.text();
+      if (text.includes('BEGIN:VCALENDAR')) return text;
+    }
   } catch {
-    const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-    const res = await fetch(proxy);
-    if (!res.ok) throw new Error(`Proxy fetch failed: HTTP ${res.status}`);
-    text = await res.text();
+    // CORS blocked — try proxies
   }
+
+  // 2. Try each proxy in sequence
+  const errors: string[] = [];
+  for (const makeProxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = makeProxy(url);
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) {
+        const text = await res.text();
+        if (text.includes('BEGIN:VCALENDAR')) return text;
+        errors.push(`Proxy returned non-ICS content`);
+      } else {
+        errors.push(`Proxy HTTP ${res.status}`);
+      }
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : 'timeout');
+    }
+  }
+
+  throw new Error(
+    `Could not fetch the calendar URL directly or via proxy.\n\n` +
+      `Canvas may be blocking automated requests. ` +
+      `Please download the .ics file from Canvas instead:\n` +
+      `Calendar → Download Calendar → open the .ics file here.`
+  );
+}
+
+// Fetch ICS from a URL
+export async function fetchICS(url: string): Promise<ICSEvent[]> {
+  const text = await tryFetch(url);
 
   if (!text.includes('BEGIN:VCALENDAR')) {
     throw new Error('Not a valid iCal file');

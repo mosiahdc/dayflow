@@ -272,7 +272,17 @@ export default function ICSImportModal({ onClose }: Props) {
 
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
-                <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+                {error.split('\n').map((line, i) => (
+                  <p
+                    key={i}
+                    className={`text-red-600 dark:text-red-400 ${i === 0 ? 'text-sm font-medium' : 'text-xs mt-1 opacity-80'}`}
+                  >
+                    {line}
+                  </p>
+                ))}
+                <p className="text-xs text-red-500 dark:text-red-400 mt-2 font-medium">
+                  👆 Try uploading the .ics file directly instead
+                </p>
               </div>
             )}
 
