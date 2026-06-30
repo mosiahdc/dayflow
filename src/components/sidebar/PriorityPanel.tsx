@@ -192,9 +192,27 @@ export default function PriorityPanel() {
     });
   }
 
-  // Split into pending and done for cleaner display
-  const pending = ordered.filter((i) => !i.done);
-  const done = ordered.filter((i) => i.done);
+  const [showAll, setShowAll] = useState(false);
+
+  // "This week" = today through end of Sunday (or next 7 days for items without a date)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(todayStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
+  const isThisWeek = (item: PriorityItem) => {
+    if (!item.dueDate) return true; // no due date → always show (manually added)
+    const due = new Date(item.dueDate + 'T12:00:00');
+    return due <= weekEnd;
+  };
+
+  const allPending = ordered.filter((i) => !i.done);
+  const allDone = ordered.filter((i) => i.done);
+
+  const pending = showAll ? allPending : allPending.filter(isThisWeek);
+  const done = showAll ? allDone : allDone.filter(isThisWeek);
+
+  const hiddenCount = allPending.filter((i) => !isThisWeek(i)).length;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden flex flex-col">
@@ -206,12 +224,21 @@ export default function PriorityPanel() {
             <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-full">{pending.length}</span>
           )}
         </div>
-        <button
-          onClick={() => setAdding(!adding)}
-          className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
-        >
-          + Add
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowAll((s) => !s)}
+            className="text-xs bg-white/10 hover:bg-white/20 px-2 py-1 rounded"
+            title={showAll ? 'Show this week only' : 'Show all items'}
+          >
+            {showAll ? 'This week' : 'All'}
+          </button>
+          <button
+            onClick={() => setAdding(!adding)}
+            className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded"
+          >
+            + Add
+          </button>
+        </div>
       </div>
 
       {/* Add form */}
@@ -303,6 +330,16 @@ export default function PriorityPanel() {
             </div>
           </SortableContext>
         </DndContext>
+
+        {/* Show hidden count when in week mode */}
+        {!showAll && hiddenCount > 0 && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="w-full text-xs text-brand-muted hover:text-brand-accent py-2 border-t dark:border-gray-700 transition-colors"
+          >
+            +{hiddenCount} more item{hiddenCount !== 1 ? 's' : ''} due later → Show all
+          </button>
+        )}
       </div>
     </div>
   );
