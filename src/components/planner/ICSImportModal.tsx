@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { parseICS, fetchICS } from '@/lib/importICS';
 import { usePlannerStore } from '@/store/plannerStore';
 import { useTaskStore } from '@/store/taskStore';
+import { usePriorityStore } from '@/store/priorityStore';
 import type { ICSEvent } from '@/lib/importICS';
+import type { Priority } from '@/types';
 
 interface Props {
   onClose: () => void;
@@ -11,15 +13,19 @@ interface Props {
 
 type Step = 'input' | 'preview' | 'done';
 
+// A deadline event has the same start and end time (or isAllDay with no real duration)
+function isDeadline(ev: ICSEvent): boolean {
+  return ev.dtStart.getTime() === ev.dtEnd.getTime() || ev.isAllDay;
+}
+
 // Duration in minutes between two dates, clamped to 30–480
 function durationMins(start: Date, end: Date): number {
   const diff = Math.round((end.getTime() - start.getTime()) / 60000);
-  if (diff <= 0) return 30; // deadline-style events (same start/end)
+  if (diff <= 0) return 30;
   return Math.min(480, Math.max(30, Math.round(diff / 30) * 30));
 }
 
 function formatTimeGMT8(d: Date): string {
-  // d is already shifted to GMT+8, so read UTC fields
   let h = d.getUTCHours();
   const m = d.getUTCMinutes();
   const ampm = h >= 12 ? 'PM' : 'AM';
@@ -27,18 +33,28 @@ function formatTimeGMT8(d: Date): string {
   return `${h}:${String(m).padStart(2, '0')} ${ampm}`;
 }
 
-function formatEventTime(event: ICSEvent): string {
-  if (event.isAllDay) return 'All day';
-  const start = formatTimeGMT8(event.dtStart);
-  const isSameTime = event.dtStart.getTime() === event.dtEnd.getTime();
-  if (isSameTime) return `Due ${start}`;
-  return `${start} – ${formatTimeGMT8(event.dtEnd)}`;
+function formatEventTime(ev: ICSEvent): string {
+  if (ev.isAllDay) return 'All day';
+  const isSame = ev.dtStart.getTime() === ev.dtEnd.getTime();
+  const start = formatTimeGMT8(ev.dtStart);
+  if (isSame) return `Due ${start}`;
+  return `${start} – ${formatTimeGMT8(ev.dtEnd)}`;
+}
+
+// Guess priority based on how soon the deadline is
+function guessPriority(dateStr: string): Priority {
+  const today = new Date();
+  const due = new Date(dateStr + 'T12:00:00');
+  const days = differenceInCalendarDays(due, today);
+  if (days <= 1) return 'high';
+  if (days <= 4) return 'medium';
+  return 'low';
 }
 
 // Derive a category from the summary text
 function guessCategory(summary: string): 'work' | 'personal' | 'health' | 'learning' {
   const s = summary.toLowerCase();
-  if (/quiz|exam|test|assignment|project|hw|homework|lab|activity|learning/.test(s))
+  if (/quiz|exam|test|assignment|project|hw|homework|lab|activity|learning|peer|course/.test(s))
     return 'learning';
   if (/meeting|work|standup|review|deploy|release/.test(s)) return 'work';
   if (/gym|run|workout|health|doctor|yoga/.test(s)) return 'health';
@@ -48,6 +64,7 @@ function guessCategory(summary: string): 'work' | 'personal' | 'health' | 'learn
 export default function ICSImportModal({ onClose }: Props) {
   const { addTask: addScheduledTask } = usePlannerStore();
   const { addTask: addLibraryTask, tasks: libraryTasks, fetchAll } = useTaskStore();
+  const { addItem: addPriorityItem } = usePriorityStore();
 
   const [step, setStep] = useState<Step>('input');
   const [url, setUrl] = useState('');
@@ -56,8 +73,12 @@ export default function ICSImportModal({ onClose }: Props) {
   const [events, setEvents] = useState<ICSEvent[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
-  const [importedCount, setImportedCount] = useState(0);
+  const [importedPlanner, setImportedPlanner] = useState(0);
+  const [importedPriority, setImportedPriority] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const deadlines = events.filter(isDeadline);
+  const scheduled = events.filter((ev) => !isDeadline(ev));
 
   // ── Parse from file upload ────────────────────────────────────────────────
   const handleFile = (file: File) => {
@@ -79,7 +100,7 @@ export default function ICSImportModal({ onClose }: Props) {
           setSelected(new Set(parsed.map((ev) => ev.uid)));
           setStep('preview');
         }
-      } catch (err) {
+      } catch {
         setError('Failed to parse ICS file');
       } finally {
         setLoading(false);
@@ -106,56 +127,60 @@ export default function ICSImportModal({ onClose }: Props) {
         setStep('preview');
       }
     } catch (err) {
-      setError(`Could not fetch calendar: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Import selected events into DayFlow ──────────────────────────────────
+  // ── Import ────────────────────────────────────────────────────────────────
   const handleImport = async () => {
     setImporting(true);
-    let count = 0;
+    let plannerCount = 0;
+    let priorityCount = 0;
 
-    // Ensure task library is loaded
     await fetchAll();
 
-    for (const event of events) {
-      if (!selected.has(event.uid)) continue;
+    for (const ev of events) {
+      if (!selected.has(ev.uid)) continue;
 
-      // Use pre-computed GMT+8 date string and slot from the parser
-      const dateStr = event.dtStartDateStr;
-      const slot = event.dtStartSlot;
-      const dur = event.isAllDay ? 30 : durationMins(event.dtStart, event.dtEnd);
-      const category = guessCategory(event.summary);
+      if (isDeadline(ev)) {
+        // ── Route to Priority Panel ──────────────────────────────────────
+        const priority = guessPriority(ev.dtStartDateStr);
+        await addPriorityItem(ev.summary, priority, ev.dtStartDateStr);
+        priorityCount++;
+      } else {
+        // ── Route to Day Planner ─────────────────────────────────────────
+        const dateStr = ev.dtStartDateStr;
+        const slot = ev.dtStartSlot;
+        const dur = durationMins(ev.dtStart, ev.dtEnd);
+        const category = guessCategory(ev.summary);
 
-      // Check if a matching task already exists in library
-      let taskId = libraryTasks.find((t) => t.title === event.summary)?.id;
+        let taskId = libraryTasks.find((t) => t.title === ev.summary)?.id;
+        if (!taskId) {
+          await addLibraryTask({
+            title: ev.summary,
+            category,
+            color:
+              category === 'learning' ? '#F59E0B' : category === 'work' ? '#4F6EF7' : '#7C3AED',
+            durationMins: dur,
+            recurring: { type: 'none' },
+            ...(ev.description ? { notes: ev.description.slice(0, 500) } : {}),
+          });
+          await new Promise((r) => setTimeout(r, 80));
+          const { tasks } = useTaskStore.getState();
+          taskId = tasks.find((t) => t.title === ev.summary)?.id;
+        }
 
-      if (!taskId) {
-        // Create task in library first
-        await addLibraryTask({
-          title: event.summary,
-          category,
-          color: category === 'learning' ? '#F59E0B' : category === 'work' ? '#4F6EF7' : '#7C3AED',
-          durationMins: dur,
-          recurring: { type: 'none' },
-          ...(event.description ? { notes: event.description.slice(0, 500) } : {}),
-        });
-
-        // Wait a tick for the store to update
-        await new Promise((r) => setTimeout(r, 80));
-        const { tasks } = useTaskStore.getState();
-        taskId = tasks.find((t) => t.title === event.summary)?.id;
-      }
-
-      if (taskId) {
-        await addScheduledTask(taskId, dateStr, slot);
-        count++;
+        if (taskId) {
+          await addScheduledTask(taskId, dateStr, slot);
+          plannerCount++;
+        }
       }
     }
 
-    setImportedCount(count);
+    setImportedPlanner(plannerCount);
+    setImportedPriority(priorityCount);
     setStep('done');
     setImporting(false);
   };
@@ -176,14 +201,17 @@ export default function ICSImportModal({ onClose }: Props) {
     }
   };
 
-  // Group events by date for preview
-  const grouped = events.reduce<Record<string, ICSEvent[]>>((acc, ev) => {
-    const key = format(ev.dtStart, 'yyyy-MM-dd');
-    (acc[key] ??= []).push(ev);
-    return acc;
-  }, {});
+  const toggleGroup = (evs: ICSEvent[]) => {
+    const allSelected = evs.every((e) => selected.has(e.uid));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      evs.forEach((e) => (allSelected ? next.delete(e.uid) : next.add(e.uid)));
+      return next;
+    });
+  };
 
-  const sortedDates = Object.keys(grouped).sort();
+  const selectedDeadlines = deadlines.filter((e) => selected.has(e.uid));
+  const selectedScheduled = scheduled.filter((e) => selected.has(e.uid));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
@@ -200,7 +228,7 @@ export default function ICSImportModal({ onClose }: Props) {
             <h2 className="font-semibold text-white text-sm">📅 Import Calendar</h2>
             {step === 'preview' && (
               <p className="text-xs text-gray-400 mt-0.5">
-                {events.length} events found · {selected.size} selected
+                {events.length} events · {deadlines.length} deadlines · {scheduled.length} scheduled
               </p>
             )}
           </div>
@@ -212,7 +240,6 @@ export default function ICSImportModal({ onClose }: Props) {
         {/* ── Step 1: Input ── */}
         {step === 'input' && (
           <div className="p-4 flex flex-col gap-4 overflow-y-auto">
-            {/* File upload */}
             <div>
               <p className="text-xs font-semibold text-brand-muted uppercase tracking-wide mb-2">
                 Option 1 — Upload .ics file
@@ -237,14 +264,12 @@ export default function ICSImportModal({ onClose }: Props) {
               </button>
             </div>
 
-            {/* Divider */}
             <div className="flex items-center gap-3">
               <div className="flex-1 border-t dark:border-gray-700" />
               <span className="text-xs text-brand-muted">or</span>
               <div className="flex-1 border-t dark:border-gray-700" />
             </div>
 
-            {/* URL */}
             <div>
               <p className="text-xs font-semibold text-brand-muted uppercase tracking-wide mb-2">
                 Option 2 — Subscribe via URL
@@ -301,7 +326,7 @@ export default function ICSImportModal({ onClose }: Props) {
           </div>
         )}
 
-        {/* ── Step 2: Preview & select ── */}
+        {/* ── Step 2: Preview ── */}
         {step === 'preview' && (
           <>
             <div className="px-4 py-2 border-b dark:border-gray-700 flex items-center justify-between shrink-0">
@@ -317,14 +342,114 @@ export default function ICSImportModal({ onClose }: Props) {
             </div>
 
             <div className="flex-1 overflow-y-auto">
-              {sortedDates.map((dateStr) => (
-                <div key={dateStr}>
-                  <div className="px-4 py-1.5 bg-gray-50 dark:bg-gray-700/50 sticky top-0">
-                    <p className="text-xs font-semibold text-brand-muted uppercase tracking-wide">
-                      {format(new Date(dateStr + 'T12:00:00'), 'EEE, MMM d yyyy')}
-                    </p>
+              {/* ── Deadlines → Priority Panel ── */}
+              {deadlines.length > 0 && (
+                <>
+                  <div
+                    className="px-4 py-2 sticky top-0 z-10 flex items-center justify-between dark:border-gray-700"
+                    style={{
+                      background: 'var(--df-surface2, #0f172a)',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-amber-400 uppercase tracking-wide">
+                        ⭐ Deadlines → Priority panel
+                      </span>
+                      <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded-full">
+                        {deadlines.length}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => toggleGroup(deadlines)}
+                      className="text-xs text-brand-accent hover:underline"
+                    >
+                      {deadlines.every((e) => selected.has(e.uid)) ? 'Deselect' : 'Select all'}
+                    </button>
                   </div>
-                  {grouped[dateStr]!.map((ev) => (
+                  {deadlines.map((ev) => {
+                    const priority = guessPriority(ev.dtStartDateStr);
+                    const priorityColor =
+                      priority === 'high'
+                        ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                        : priority === 'medium'
+                          ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
+                          : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';
+                    return (
+                      <label
+                        key={ev.uid}
+                        className="flex items-start gap-3 px-4 py-2.5 border-b dark:border-gray-700
+                          hover:bg-gray-50 dark:hover:bg-gray-700/30 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected.has(ev.uid)}
+                          onChange={() => toggleEvent(ev.uid)}
+                          className="mt-0.5 shrink-0 accent-brand-accent"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm font-medium dark:text-white truncate ${!selected.has(ev.uid) ? 'opacity-40' : ''}`}
+                          >
+                            {ev.summary}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs text-brand-muted">
+                              Due {format(new Date(ev.dtStartDateStr + 'T12:00:00'), 'MMM d')}
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${priorityColor}`}
+                            >
+                              {priority}
+                            </span>
+                            {ev.url && (
+                              <a
+                                href={ev.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-brand-accent hover:underline shrink-0"
+                              >
+                                ↗
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-amber-500 dark:text-amber-400 shrink-0 mt-1 font-medium">
+                          ⭐ priority
+                        </span>
+                      </label>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* ── Scheduled → Day Planner ── */}
+              {scheduled.length > 0 && (
+                <>
+                  <div
+                    className="px-4 py-2 sticky top-0 z-10 flex items-center justify-between dark:border-gray-700"
+                    style={{
+                      background: 'var(--df-surface2, #0f172a)',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-brand-accent uppercase tracking-wide">
+                        📅 Scheduled → Day planner
+                      </span>
+                      <span className="text-[10px] bg-brand-accent/20 text-brand-accent px-1.5 py-0.5 rounded-full">
+                        {scheduled.length}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => toggleGroup(scheduled)}
+                      className="text-xs text-brand-accent hover:underline"
+                    >
+                      {scheduled.every((e) => selected.has(e.uid)) ? 'Deselect' : 'Select all'}
+                    </button>
+                  </div>
+                  {scheduled.map((ev) => (
                     <label
                       key={ev.uid}
                       className="flex items-start gap-3 px-4 py-2.5 border-b dark:border-gray-700
@@ -343,7 +468,10 @@ export default function ICSImportModal({ onClose }: Props) {
                           {ev.summary}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-brand-muted">{formatEventTime(ev)}</span>
+                          <span className="text-xs text-brand-muted">
+                            {format(new Date(ev.dtStartDateStr + 'T12:00:00'), 'MMM d')} ·{' '}
+                            {formatEventTime(ev)}
+                          </span>
                           <span className="text-xs px-1.5 py-px rounded bg-gray-100 dark:bg-gray-700 text-brand-muted capitalize">
                             {guessCategory(ev.summary)}
                           </span>
@@ -360,31 +488,45 @@ export default function ICSImportModal({ onClose }: Props) {
                           )}
                         </div>
                       </div>
+                      <span className="text-[10px] text-brand-accent shrink-0 mt-1 font-medium">
+                        📅 planner
+                      </span>
                     </label>
                   ))}
-                </div>
-              ))}
+                </>
+              )}
             </div>
 
-            <div className="px-4 py-3 border-t dark:border-gray-700 flex gap-2 shrink-0">
-              <button
-                onClick={() => {
-                  setStep('input');
-                  setError('');
-                }}
-                className="flex-1 border rounded-lg py-2 text-sm dark:text-white dark:border-gray-600"
-              >
-                ← Back
-              </button>
-              <button
-                onClick={handleImport}
-                disabled={selected.size === 0 || importing}
-                className="flex-1 bg-brand-accent text-white rounded-lg py-2 text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-              >
-                {importing
-                  ? 'Importing…'
-                  : `Import ${selected.size} event${selected.size !== 1 ? 's' : ''}`}
-              </button>
+            {/* Summary footer */}
+            <div className="px-4 py-2 border-t dark:border-gray-700 shrink-0">
+              <div className="flex items-center gap-3 text-xs text-brand-muted mb-2">
+                {selectedDeadlines.length > 0 && (
+                  <span>⭐ {selectedDeadlines.length} → Priority panel</span>
+                )}
+                {selectedScheduled.length > 0 && (
+                  <span>📅 {selectedScheduled.length} → Day planner</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setStep('input');
+                    setError('');
+                  }}
+                  className="flex-1 border rounded-lg py-2 text-sm dark:text-white dark:border-gray-600"
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={handleImport}
+                  disabled={selected.size === 0 || importing}
+                  className="flex-2 bg-brand-accent text-white rounded-lg py-2 px-4 text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {importing
+                    ? 'Importing…'
+                    : `Import ${selected.size} event${selected.size !== 1 ? 's' : ''}`}
+                </button>
+              </div>
             </div>
           </>
         )}
@@ -394,12 +536,21 @@ export default function ICSImportModal({ onClose }: Props) {
           <div className="p-6 flex flex-col items-center gap-4 text-center">
             <span className="text-5xl">✅</span>
             <div>
-              <p className="font-semibold text-lg dark:text-white">
-                {importedCount} events imported!
-              </p>
-              <p className="text-sm text-brand-muted mt-1">
-                They've been added to your Day view. Check the Day or Week tab to see them.
-              </p>
+              <p className="font-semibold text-lg dark:text-white">Import complete!</p>
+              <div className="flex flex-col gap-1 mt-2">
+                {importedPriority > 0 && (
+                  <p className="text-sm text-brand-muted">
+                    ⭐ <strong className="dark:text-white">{importedPriority}</strong> deadline
+                    {importedPriority !== 1 ? 's' : ''} added to Priority panel
+                  </p>
+                )}
+                {importedPlanner > 0 && (
+                  <p className="text-sm text-brand-muted">
+                    📅 <strong className="dark:text-white">{importedPlanner}</strong> event
+                    {importedPlanner !== 1 ? 's' : ''} added to Day planner
+                  </p>
+                )}
+              </div>
             </div>
             <button
               onClick={onClose}
