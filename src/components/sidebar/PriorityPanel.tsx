@@ -51,6 +51,13 @@ function dueDateLabel(dateStr: string): { label: string; className: string } {
   };
 }
 
+// Extract course code from Canvas-style titles: "W01 Assignment: Foo [WDD430]" → { title: "W01 Assignment: Foo", course: "WDD430" }
+function parseTitle(raw: string): { title: string; course?: string | undefined } {
+  const match = raw.match(/^(.*?)\s*\[([A-Z]{2,4}\d{3}[A-Za-z0-9]*)\]\s*$/);
+  if (match && match[2]) return { title: match[1]!.trim(), course: match[2] };
+  return { title: raw };
+}
+
 function SortablePriorityRow({
   item,
   onToggle,
@@ -70,6 +77,7 @@ function SortablePriorityRow({
   };
 
   const due = item.dueDate ? dueDateLabel(item.dueDate) : null;
+  const { title, course } = parseTitle(item.title);
 
   return (
     <div
@@ -96,12 +104,19 @@ function SortablePriorityRow({
         {PRIORITY_BADGE[item.priority]}
       </span>
 
-      {/* Title */}
-      <span
-        className={`flex-1 text-xs dark:text-white truncate ${item.done ? 'line-through text-brand-muted' : ''}`}
-      >
-        {item.title}
-      </span>
+      {/* Title + course badge */}
+      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+        <span
+          className={`text-xs dark:text-white truncate ${item.done ? 'line-through text-brand-muted' : ''}`}
+        >
+          {title}
+        </span>
+        {course && (
+          <span className="text-[9px] font-semibold px-1 py-px rounded shrink-0 bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300">
+            {course}
+          </span>
+        )}
+      </div>
 
       {/* Due date — inline, compact */}
       {due && !item.done && (

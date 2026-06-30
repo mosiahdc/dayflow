@@ -61,6 +61,13 @@ function guessCategory(summary: string): 'work' | 'personal' | 'health' | 'learn
   return 'personal';
 }
 
+// Extract course code from Canvas-style titles
+function parseTitle(raw: string): { title: string; course?: string | undefined } {
+  const match = raw.match(/^(.*?)\s*\[([A-Z]{2,4}\d{3}[A-Za-z0-9]*)\]\s*$/);
+  if (match && match[2]) return { title: match[1]!.trim(), course: match[2] };
+  return { title: raw };
+}
+
 export default function ICSImportModal({ onClose }: Props) {
   const { addTask: addScheduledTask } = usePlannerStore();
   const { addTask: addLibraryTask, tasks: libraryTasks, fetchAll } = useTaskStore();
@@ -388,32 +395,46 @@ export default function ICSImportModal({ onClose }: Props) {
                           className="mt-0.5 shrink-0 accent-brand-accent"
                         />
                         <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm font-medium dark:text-white truncate ${!selected.has(ev.uid) ? 'opacity-40' : ''}`}
-                          >
-                            {ev.summary}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <span className="text-xs text-brand-muted">
-                              Due {format(new Date(ev.dtStartDateStr + 'T12:00:00'), 'MMM d')}
-                            </span>
-                            <span
-                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${priorityColor}`}
-                            >
-                              {priority}
-                            </span>
-                            {ev.url && (
-                              <a
-                                href={ev.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs text-brand-accent hover:underline shrink-0"
-                              >
-                                ↗
-                              </a>
-                            )}
-                          </div>
+                          {(() => {
+                            const { title: t, course: c } = parseTitle(ev.summary);
+                            return (
+                              <>
+                                <div
+                                  className={`flex items-center gap-1.5 ${!selected.has(ev.uid) ? 'opacity-40' : ''}`}
+                                >
+                                  <p className="text-sm font-medium dark:text-white truncate">
+                                    {t}
+                                  </p>
+                                  {c && (
+                                    <span className="text-[9px] font-semibold px-1.5 py-px rounded shrink-0 bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300">
+                                      {c}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-xs text-brand-muted">
+                                    Due {format(new Date(ev.dtStartDateStr + 'T12:00:00'), 'MMM d')}
+                                  </span>
+                                  <span
+                                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase ${priorityColor}`}
+                                  >
+                                    {priority}
+                                  </span>
+                                  {ev.url && (
+                                    <a
+                                      href={ev.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-xs text-brand-accent hover:underline shrink-0"
+                                    >
+                                      ↗
+                                    </a>
+                                  )}
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                         <span className="text-[10px] text-amber-500 dark:text-amber-400 shrink-0 mt-1 font-medium">
                           ⭐ priority
@@ -462,11 +483,21 @@ export default function ICSImportModal({ onClose }: Props) {
                         className="mt-0.5 shrink-0 accent-brand-accent"
                       />
                       <div className="flex-1 min-w-0">
-                        <p
-                          className={`text-sm font-medium dark:text-white truncate ${!selected.has(ev.uid) ? 'opacity-40' : ''}`}
-                        >
-                          {ev.summary}
-                        </p>
+                        {(() => {
+                          const { title: t, course: c } = parseTitle(ev.summary);
+                          return (
+                            <div
+                              className={`flex items-center gap-1.5 ${!selected.has(ev.uid) ? 'opacity-40' : ''}`}
+                            >
+                              <p className="text-sm font-medium dark:text-white truncate">{t}</p>
+                              {c && (
+                                <span className="text-[9px] font-semibold px-1.5 py-px rounded shrink-0 bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-300">
+                                  {c}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs text-brand-muted">
                             {format(new Date(ev.dtStartDateStr + 'T12:00:00'), 'MMM d')} ·{' '}
