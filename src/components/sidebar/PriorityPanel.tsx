@@ -75,54 +75,58 @@ function SortablePriorityRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 p-2 rounded-lg border
-        bg-gray-50 dark:bg-gray-700 dark:border-gray-600
-        ${item.done ? 'opacity-50' : ''}
+      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border
+        bg-gray-50 dark:bg-gray-700/60 dark:border-gray-600/50
+        ${item.done ? 'opacity-40' : ''}
         ${isDragging ? 'opacity-40 z-50' : ''}`}
     >
       {/* Drag handle */}
       <div
         {...listeners}
         {...attributes}
-        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 text-base leading-none"
-        title="Drag to reorder"
+        className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 text-xs leading-none"
       >
         ⠿
       </div>
 
       {/* Priority badge */}
       <span
-        className={`text-xs font-bold px-1.5 py-0.5 rounded border shrink-0 ${PRIORITY_COLORS[item.priority]}`}
+        className={`text-[9px] font-bold px-1 py-px rounded border shrink-0 ${PRIORITY_COLORS[item.priority]}`}
       >
         {PRIORITY_BADGE[item.priority]}
       </span>
 
-      {/* Title + due date */}
-      <div className="flex-1 min-w-0">
-        <span
-          className={`text-sm dark:text-white truncate block
-            ${item.done ? 'line-through text-brand-muted' : ''}`}
-        >
-          {item.title}
-        </span>
-        {due && !item.done && <span className={`text-[11px] ${due.className}`}>{due.label}</span>}
-      </div>
+      {/* Title */}
+      <span
+        className={`flex-1 text-xs dark:text-white truncate ${item.done ? 'line-through text-brand-muted' : ''}`}
+      >
+        {item.title}
+      </span>
+
+      {/* Due date — inline, compact */}
+      {due && !item.done && (
+        <span className={`text-[10px] shrink-0 ${due.className}`}>{due.label}</span>
+      )}
 
       {/* Checkbox */}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => onToggle(item.id)}
-        className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center
-          ${item.done ? 'bg-brand-green border-brand-green' : 'border-gray-300'}`}
+        className={`w-3.5 h-3.5 rounded border shrink-0 flex items-center justify-center
+          ${item.done ? 'bg-brand-green border-brand-green' : 'border-gray-300 dark:border-gray-500'}`}
       >
-        {item.done && <span className="text-white text-xs leading-none">✓</span>}
+        {item.done && (
+          <span className="text-white leading-none" style={{ fontSize: 8 }}>
+            ✓
+          </span>
+        )}
       </button>
 
       {/* Delete */}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => onDelete(item.id)}
-        className="text-gray-300 hover:text-red-400 text-sm leading-none shrink-0"
+        className="text-gray-300 hover:text-red-400 text-xs leading-none shrink-0"
       >
         ×
       </button>
@@ -294,13 +298,13 @@ export default function PriorityPanel() {
       )}
 
       {/* Sortable list */}
-      <div className="overflow-y-auto flex-1 p-2" style={{ maxHeight: '460px' }}>
+      <div className="overflow-y-auto flex-1 px-2 py-1.5" style={{ maxHeight: '460px' }}>
         {ordered.length === 0 && (
           <p className="text-xs text-brand-muted text-center mt-4">No items yet.</p>
         )}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={ordered.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               {/* Pending items first */}
               {pending.map((item) => (
                 <SortablePriorityRow
