@@ -4,7 +4,7 @@ import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 
-const PROJECT_START = '2026-06-22 00:00:00';
+const PROJECT_START = '2026-07-10 00:00:00';
 const MAX_TRADES_PER_DAY = 5;
 
 // UTC+8 offset helper — converts a UTC ISO string to UTC+8 display string
