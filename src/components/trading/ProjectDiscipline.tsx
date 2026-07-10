@@ -1,24 +1,28 @@
 import { useMemo, useState, useEffect } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfWeek } from 'date-fns';
 import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 
 const PROJECT_START = '2026-07-10 00:00:00';
-const MAX_TRADES_PER_DAY = 5;
 
-// UTC+8 offset helper — converts a UTC ISO string to UTC+8 display string
+// UTC+8 helpers
+function nowUTC8(): Date {
+  return new Date(Date.now() + 8 * 60 * 60 * 1000);
+}
 function toUTC8(isoString: string): string {
-  const date = new Date(isoString);
-  const utc8 = new Date(date.getTime() + 8 * 60 * 60 * 1000);
+  const utc8 = new Date(new Date(isoString).getTime() + 8 * 60 * 60 * 1000);
   return format(utc8, 'MMM d, HH:mm');
 }
-
-// Today's date in UTC+8
 function todayUTC8(): string {
-  const now = new Date();
-  const utc8 = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  return utc8.toISOString().slice(0, 10);
+  return nowUTC8().toISOString().slice(0, 10);
+}
+
+// Get the most recent Monday 00:00 in UTC+8 (week snapshot date)
+function currentWeekMondayUTC8(): string {
+  const now = nowUTC8();
+  const monday = startOfWeek(now, { weekStartsOn: 1 }); // 1 = Monday
+  return monday.toISOString().slice(0, 10);
 }
 
 type MarginMode = 'Low' | 'Normal' | 'Hype' | 'Volatile';
@@ -30,8 +34,25 @@ const MARGIN_DIVISORS: Record<MarginMode, number> = {
 };
 
 type TxType = 'deposit' | 'withdrawal' | 'funding_fee';
+const TX_CONFIG: Record<TxType, { label: string; colorClass: string; badgeClass: string }> = {
+  deposit: {
+    label: 'Deposit',
+    colorClass: 'text-green-600 dark:text-green-400',
+    badgeClass: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  },
+  withdrawal: {
+    label: 'Withdraw',
+    colorClass: 'text-red-500 dark:text-red-400',
+    badgeClass: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
+  },
+  funding_fee: {
+    label: 'Funding Fee',
+    colorClass: 'text-amber-600 dark:text-amber-400',
+    badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  },
+};
 
-// ── Shared badges ─────────────────────────────────────────────────────────────
+// ── Shared badges ──────────────────────────────────────────────────────────────
 
 function PnlBadge({ pnl }: { pnl: number }) {
   const isPos = pnl > 0;
@@ -68,8 +89,6 @@ function DirectionBadge({ direction }: { direction: string }) {
   );
 }
 
-// ── Stat box ──────────────────────────────────────────────────────────────────
-
 function StatBox({
   label,
   children,
@@ -94,7 +113,7 @@ function StatBox({
   );
 }
 
-// ── Notes cell ────────────────────────────────────────────────────────────────
+// ── Notes cell ─────────────────────────────────────────────────────────────────
 
 function NotesCell({
   tradeId,
@@ -108,7 +127,6 @@ function NotesCell({
   const note = getNote(tradeId);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-
   const handleOpen = () => {
     setDraft(note.notes);
     setOpen(true);
@@ -117,8 +135,7 @@ function NotesCell({
     setNote(tradeId, 'notes', draft.trim());
     setOpen(false);
   };
-
-  if (open) {
+  if (open)
     return (
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -151,8 +168,6 @@ function NotesCell({
         </div>
       </div>
     );
-  }
-
   return (
     <button
       onClick={handleOpen}
@@ -169,7 +184,7 @@ function NotesCell({
   );
 }
 
-// ── Video cell ────────────────────────────────────────────────────────────────
+// ── Video cell ─────────────────────────────────────────────────────────────────
 
 function VideoCell({
   tradeId,
@@ -183,7 +198,6 @@ function VideoCell({
   const note = getNote(tradeId);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-
   const handleOpen = () => {
     setDraft(note.videoUrl);
     setOpen(true);
@@ -196,8 +210,7 @@ function VideoCell({
     e.stopPropagation();
     window.open(note.videoUrl, '_blank', 'noreferrer');
   };
-
-  if (open) {
+  if (open)
     return (
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -231,8 +244,6 @@ function VideoCell({
         </div>
       </div>
     );
-  }
-
   return (
     <div className="flex items-center justify-center gap-1">
       {note.videoUrl ? (
@@ -265,28 +276,7 @@ function VideoCell({
   );
 }
 
-// ── TX type config ────────────────────────────────────────────────────────────
-
-// TX_CONFIG — funding_fee sign depends on whether the amount is positive or negative
-const TX_CONFIG: Record<TxType, { label: string; colorClass: string; badgeClass: string }> = {
-  deposit: {
-    label: 'Deposit',
-    colorClass: 'text-green-600 dark:text-green-400',
-    badgeClass: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  },
-  withdrawal: {
-    label: 'Withdraw',
-    colorClass: 'text-red-500 dark:text-red-400',
-    badgeClass: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
-  },
-  funding_fee: {
-    label: 'Funding Fee',
-    colorClass: 'text-amber-600 dark:text-amber-400',
-    badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  },
-};
-
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ─────────────────────────────────────────────────────────────
 
 interface Props {
   trades: Trade[];
@@ -299,8 +289,6 @@ export default function ProjectDiscipline({ trades }: Props) {
   const [marginMode, setMarginMode] = useState<MarginMode>('Normal');
   const [copied, setCopied] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-
-  // Transaction modal state
   const [txModal, setTxModal] = useState<TxType | null>(null);
   const [txAmount, setTxAmount] = useState('');
   const [txNote, setTxNote] = useState('');
@@ -312,10 +300,11 @@ export default function ProjectDiscipline({ trades }: Props) {
     fetchNotes();
   }, [fetchSettings, fetchNotes]);
 
+  // ── Project trades (from Jul 10 2026 00:00 PHT onwards) ───────────────────
   const projectTrades = useMemo(() => trades.filter((t) => t.closeTime >= PROJECT_START), [trades]);
 
-  // Daily summary — exclude ONLY today (UTC+8) since it's still in progress.
-  // All past days are completed and included.
+  // ── Daily summary — ALL days including today, update immediately ───────────
+  // No waiting for day-end; as soon as a trade is imported it shows up.
   const today = todayUTC8();
   const dailySummary = useMemo(() => {
     const map = new Map<string, { pnl: number; count: number }>();
@@ -327,18 +316,56 @@ export default function ProjectDiscipline({ trades }: Props) {
       s.count += 1;
     }
     return [...map.entries()]
-      .filter(([date]) => date !== today) // exclude today — still in progress
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([date, stats]) => ({ date, ...stats }));
-  }, [projectTrades, today]);
+  }, [projectTrades]);
 
-  // Net effect of all transactions — amount is already signed
+  // ── Transactions net ───────────────────────────────────────────────────────
   const txNet = useMemo(() => transactions.reduce((sum, t) => sum + t.amount, 0), [transactions]);
 
-  // Balance = initial + tx net + completed-day PNL (excludes today)
+  // ── Live balance = initial + tx net + ALL project PNL ─────────────────────
   const projectPnl = useMemo(() => dailySummary.reduce((sum, d) => sum + d.pnl, 0), [dailySummary]);
   const balance = initialBalance + txNet + projectPnl;
 
+  // ── Weekly base = balance as of Monday 00:00 UTC+8 ────────────────────────
+  // We compute what the balance was at the start of the current week by
+  // subtracting PNL from trades that occurred AFTER Monday 00:00 UTC+8.
+  const weekMondayDate = currentWeekMondayUTC8(); // e.g. '2026-07-07'
+  const weekMondayTimestamp = `${weekMondayDate} 00:00:00`;
+
+  // PNL earned this week (trades on or after this Monday)
+  const thisWeekPnl = useMemo(
+    () =>
+      projectTrades
+        .filter((t) => t.closeTime >= weekMondayTimestamp)
+        .reduce((sum, t) => sum + t.realizedPnl, 0),
+    [projectTrades, weekMondayTimestamp]
+  );
+
+  // Tx that happened this week
+  const thisWeekTxNet = useMemo(
+    () =>
+      transactions
+        .filter((t) => {
+          // createdAt is UTC ISO, convert to PHT for comparison
+          const phtDate = new Date(new Date(t.createdAt).getTime() + 8 * 60 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10);
+          return phtDate >= weekMondayDate;
+        })
+        .reduce((sum, t) => sum + t.amount, 0),
+    [transactions, weekMondayDate]
+  );
+
+  // Weekly base = live balance minus this week's changes = Monday 00:00 snapshot
+  const weeklyBase = balance - thisWeekPnl - thisWeekTxNet;
+
+  // All weekly parameters derive from weeklyBase (locked for the week)
+  const weeklyMargin = weeklyBase * 0.1;
+  const weeklyTP = weeklyMargin * 0.35;
+  const weeklySL = weeklyMargin; // 100% of margin
+
+  // Position margin uses LIVE balance (current buying power)
   const positionMargin = balance > 0 ? (balance * 0.01) / MARGIN_DIVISORS[marginMode] : 0;
 
   const handleCopy = () => {
@@ -351,9 +378,8 @@ export default function ProjectDiscipline({ trades }: Props) {
     const amt = parseFloat(txAmount);
     if (!txModal || isNaN(amt) || amt === 0) return;
     setTxSaving(true);
-    // deposit = +amt, withdrawal = -amt, funding_fee = signed as entered
     const signedAmount =
-      txModal === 'deposit' ? Math.abs(amt) : txModal === 'withdrawal' ? -Math.abs(amt) : amt; // funding_fee: user enters positive or negative
+      txModal === 'deposit' ? Math.abs(amt) : txModal === 'withdrawal' ? -Math.abs(amt) : amt; // funding_fee: user controls sign
     await addTransaction(txModal, signedAmount, txNote.trim());
     setTxAmount('');
     setTxNote('');
@@ -361,7 +387,7 @@ export default function ProjectDiscipline({ trades }: Props) {
     setTxSaving(false);
   };
 
-  // Visible trades — sorted newest first
+  // ── Visible trades in log ─────────────────────────────────────────────────
   const visibleTrades = useMemo(() => {
     const base = selectedDate
       ? projectTrades.filter((t) => t.closeTime.slice(0, 10) === selectedDate)
@@ -374,7 +400,7 @@ export default function ProjectDiscipline({ trades }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Row 1: Stats ────────────────────────────────────────────────── */}
+      {/* ── Row 1: Stats ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3">
         {/* Balance */}
         <StatBox label="Balance">
@@ -400,7 +426,6 @@ export default function ProjectDiscipline({ trades }: Props) {
           {initialBalance === 0 && (
             <p className="text-[10px] text-amber-500">Set initial balance in ⚙️ Settings</p>
           )}
-          {/* Action buttons */}
           <div className="flex gap-1 mt-1.5 flex-wrap">
             <button
               onClick={() => {
@@ -444,34 +469,45 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
         </StatBox>
 
-        {/* Weekly Parameters */}
+        {/* Weekly Parameters — locked from Monday 00:00 PHT */}
         <StatBox label="Weekly Parameters">
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-0.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="text-[10px] font-semibold text-brand-muted">Week of</span>
+            <span className="text-[10px] font-bold dark:text-white">
+              {format(parseISO(weekMondayDate), 'MMM d, yyyy')}
+            </span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent font-semibold">
+              LOCKED
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             <div>
-              <p className="text-[10px] text-brand-muted">Base margin (10%)</p>
-              <p className="text-base font-bold text-brand-accent">${(balance * 0.1).toFixed(2)}</p>
+              <p className="text-[10px] text-brand-muted">Weekly base (Mon 12AM)</p>
+              <p className="text-base font-bold dark:text-white">${weeklyBase.toFixed(2)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-brand-muted">Leverage</p>
-              <p className="text-base font-bold dark:text-white">500×</p>
+              <p className="text-[10px] text-brand-muted">Trade margin (10%)</p>
+              <p className="text-base font-bold text-brand-accent">${weeklyMargin.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-[10px] text-brand-muted">TP target (+35% ROE)</p>
               <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                +${(balance * 0.1 * 0.35).toFixed(2)}
+                +${weeklyTP.toFixed(2)}
               </p>
             </div>
             <div>
               <p className="text-[10px] text-brand-muted">Hard SL (−100% ROE)</p>
               <p className="text-sm font-bold text-red-500 dark:text-red-400">
-                −${(balance * 0.1).toFixed(2)}
+                −${weeklySL.toFixed(2)}
               </p>
             </div>
           </div>
-          <p className="text-[10px] text-brand-muted mt-1">Max 3 trades · 1-loss circuit breaker</p>
+          <p className="text-[10px] text-brand-muted mt-1">
+            500× · Max 3 trades · 1-loss circuit breaker
+          </p>
         </StatBox>
 
-        {/* Position Margin */}
+        {/* Position Margin — uses live balance */}
         <StatBox label="Position Margin" highlight>
           <div className="flex items-center gap-2 mb-1">
             <select
@@ -498,22 +534,18 @@ export default function ProjectDiscipline({ trades }: Props) {
               disabled={positionMargin === 0}
               title="Copy to clipboard"
               className={`text-xs px-2 py-1 rounded font-semibold transition-all shrink-0
-                ${
-                  copied
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-brand-muted hover:bg-brand-accent hover:text-white disabled:opacity-30 disabled:cursor-not-allowed'
-                }`}
+                ${copied ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-brand-muted hover:bg-brand-accent hover:text-white disabled:opacity-30 disabled:cursor-not-allowed'}`}
             >
               {copied ? '✓' : '⎘'}
             </button>
           </div>
           <p className="text-[10px] text-brand-muted">
-            (Balance × 1%) ÷ {MARGIN_DIVISORS[marginMode]}
+            (Live balance × 1%) ÷ {MARGIN_DIVISORS[marginMode]}
           </p>
         </StatBox>
       </div>
 
-      {/* ── Transaction history panel ────────────────────────────────────── */}
+      {/* ── Transaction history ────────────────────────────────────────────── */}
       {showTxHistory && transactions.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden">
           <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex justify-between items-center">
@@ -563,7 +595,7 @@ export default function ProjectDiscipline({ trades }: Props) {
         </div>
       )}
 
-      {/* ── Transaction modal ────────────────────────────────────────────── */}
+      {/* ── Transaction modal ──────────────────────────────────────────────── */}
       {txModal && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -599,7 +631,7 @@ export default function ProjectDiscipline({ trades }: Props) {
                 onKeyDown={(e) => e.key === 'Enter' && handleTxSave()}
                 placeholder={
                   txModal === 'funding_fee'
-                    ? 'e.g. Apr 14 funding'
+                    ? 'e.g. Jul 10 funding'
                     : txModal === 'deposit'
                       ? 'e.g. Weekly top-up'
                       : 'e.g. Profit taking'
@@ -618,13 +650,7 @@ export default function ProjectDiscipline({ trades }: Props) {
                 onClick={handleTxSave}
                 disabled={txSaving || txAmount === '' || txAmount === '0'}
                 className={`flex-1 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-50
-                  ${
-                    txModal === 'deposit'
-                      ? 'bg-green-500 hover:bg-green-600'
-                      : txModal === 'funding_fee'
-                        ? 'bg-amber-500 hover:bg-amber-600'
-                        : 'bg-red-500 hover:bg-red-600'
-                  }`}
+                  ${txModal === 'deposit' ? 'bg-green-500 hover:bg-green-600' : txModal === 'funding_fee' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'}`}
               >
                 {txSaving ? 'Saving…' : TX_CONFIG[txModal].label}
               </button>
@@ -633,7 +659,7 @@ export default function ProjectDiscipline({ trades }: Props) {
         </div>
       )}
 
-      {/* ── Row 2: Sidebar + Trade log ───────────────────────────────────── */}
+      {/* ── Row 2: Sidebar + Trade log ─────────────────────────────────────── */}
       <div className="flex gap-4" style={{ minHeight: '520px' }}>
         {/* Left sidebar — daily summary */}
         <div className="w-48 shrink-0 flex flex-col gap-2">
@@ -642,9 +668,7 @@ export default function ProjectDiscipline({ trades }: Props) {
           </p>
           <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden flex-1">
             {dailySummary.length === 0 ? (
-              <p className="text-xs text-brand-muted text-center py-8 px-3">
-                No completed days yet.
-              </p>
+              <p className="text-xs text-brand-muted text-center py-8 px-3">No trades yet.</p>
             ) : (
               <div
                 className="divide-y dark:divide-gray-700 overflow-y-auto"
@@ -652,6 +676,7 @@ export default function ProjectDiscipline({ trades }: Props) {
               >
                 {dailySummary.map(({ date, pnl, count }) => {
                   const isSelected = selectedDate === date;
+                  const isToday = date === today;
                   return (
                     <button
                       key={date}
@@ -660,9 +685,16 @@ export default function ProjectDiscipline({ trades }: Props) {
                         ${isSelected ? 'bg-brand-accent/10 dark:bg-brand-accent/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}
                     >
                       <div>
-                        <p className="text-xs font-semibold dark:text-white">
-                          {format(parseISO(date), 'MMM d')}
-                        </p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs font-semibold dark:text-white">
+                            {format(parseISO(date), 'MMM d')}
+                          </p>
+                          {isToday && (
+                            <span className="text-[9px] px-1 py-0.5 rounded bg-brand-amber text-white font-bold">
+                              TODAY
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-brand-muted">{count} trades</p>
                       </div>
                       <span
@@ -684,8 +716,8 @@ export default function ProjectDiscipline({ trades }: Props) {
           <div className="flex items-center justify-between px-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
               {selectedDate
-                ? `Trade Log — ${format(parseISO(selectedDate), 'MMM d, yyyy')}`
-                : `Project Trade Log (from ${format(parseISO(PROJECT_START.slice(0, 10)), 'MMM d, yyyy')})`}
+                ? `Trade Log — ${format(parseISO(selectedDate), 'MMM d, yyyy')}${selectedDate === today ? ' (Today)' : ''}`
+                : `Project Trade Log · from ${format(parseISO(PROJECT_START.slice(0, 10)), 'MMM d, yyyy')}`}
             </p>
             {selectedDate && (
               <button
