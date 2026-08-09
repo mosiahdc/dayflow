@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useUIStore } from '@/store/uiStore';
 import type { View } from '@/types';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import Auth from '@/components/Auth';
-import DayPage from '@/pages/index';
-import WeekPage from '@/pages/week';
-import MonthPage from '@/pages/month';
+import PlannerPage from '@/pages/planner';
 import AnalyticsPage from '@/pages/analytics';
 import HabitsPage from '@/pages/habits';
 import FastingPage from '@/pages/fasting';
@@ -29,8 +27,6 @@ function AuthenticatedApp() {
     activeView,
     setView,
     setDate,
-    setWeekStart,
-    setActiveMonth,
     toggleDark,
     docsNewBadge,
     dismissDocsBadge,
@@ -40,10 +36,12 @@ function AuthenticatedApp() {
   useSupabaseRealtime();
   useOfflineSync();
 
+  // 'day' is the canonical View value for the Planner tab — it groups
+  // the Day / Week / Month sub-views (see src/pages/planner.tsx).
+  const isPlannerView = (v: View) => v === 'day' || v === 'week' || v === 'month';
+
   const desktopTabs: { view: View; label: string; badge?: boolean }[] = [
-    { view: 'day', label: 'Day' },
-    { view: 'week', label: 'Week' },
-    { view: 'month', label: 'Month' },
+    { view: 'day', label: '🗂 Planner' },
     { view: 'analytics', label: '📊' },
     { view: 'habits', label: 'Habits' },
     { view: 'fasting', label: '🕐 Fast' },
@@ -56,14 +54,12 @@ function AuthenticatedApp() {
   ];
 
   const mainMobileTabs: { view: View; label: string; icon: string; badge?: boolean }[] = [
-    { view: 'day', label: 'Day', icon: '📅' },
-    { view: 'week', label: 'Week', icon: '📆' },
-    { view: 'month', label: 'Month', icon: '🗓' },
+    { view: 'day', label: 'Planner', icon: '🗂' },
+    { view: 'habits', label: 'Habits', icon: '✅' },
+    { view: 'fasting', label: 'Fast', icon: '⏱️' },
   ];
 
   const moreMobileTabs: { view: View; label: string; icon: string; badge?: boolean }[] = [
-    { view: 'habits', label: 'Habits', icon: '✅' },
-    { view: 'fasting', label: 'Fast', icon: '⏱️' },
     { view: 'trade', label: 'Trade', icon: '📈' },
     { view: 'documents', label: 'Read', icon: '📖', badge: docsNewBadge },
     { view: 'plants', label: 'Plants', icon: '🌱' },
@@ -102,15 +98,17 @@ function AuthenticatedApp() {
         <span className="font-bold text-base text-white shrink-0 mr-2">DayFlow</span>
 
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none flex-1">
-          {desktopTabs.map(({ view, label, badge }) => (
+          {desktopTabs.map(({ view, label, badge }) => {
+            const isActive = view === 'day' ? isPlannerView(activeView) : activeView === view;
+            return (
             <button
               key={view}
               onClick={() => handleNavClick(view)}
               className="relative text-sm font-medium whitespace-nowrap px-3 py-1.5 rounded-md transition-all"
               style={{
-                background: activeView === view ? 'var(--df-accent)' : 'var(--df-surface2)',
-                color: activeView === view ? '#fff' : 'var(--df-muted)',
-                border: `1px solid ${activeView === view ? 'var(--df-accent)' : 'var(--df-border)'}`,
+                background: isActive ? 'var(--df-accent)' : 'var(--df-surface2)',
+                color: isActive ? '#fff' : 'var(--df-muted)',
+                border: `1px solid ${isActive ? 'var(--df-accent)' : 'var(--df-border)'}`,
               }}
             >
               {label}
@@ -123,7 +121,8 @@ function AuthenticatedApp() {
                 </span>
               )}
             </button>
-          ))}
+            );
+          })}
           {needRefresh[0] && (
             <button
               onClick={() => updateServiceWorker(true)}
@@ -197,9 +196,7 @@ function AuthenticatedApp() {
           className="flex-1 p-3 overflow-y-auto"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 70px)' }}
         >
-          {activeView === 'day' && <DayPage />}
-          {activeView === 'week' && <WeekPage />}
-          {activeView === 'month' && <MonthPage />}
+          {isPlannerView(activeView) && <PlannerPage />}
           {activeView === 'analytics' && <AnalyticsPage />}
           {activeView === 'habits' && <HabitsPage />}
           {activeView === 'fasting' && <FastingPage />}
@@ -220,7 +217,9 @@ function AuthenticatedApp() {
           paddingBottom: 'env(safe-area-inset-bottom)',
         }}
       >
-        {mainMobileTabs.map(({ view, label, icon }) => (
+        {mainMobileTabs.map(({ view, label, icon }) => {
+          const isActive = view === 'day' ? isPlannerView(activeView) : activeView === view;
+          return (
           <button
             key={view}
             onClick={() => {
@@ -228,17 +227,18 @@ function AuthenticatedApp() {
               setShowMoreSheet(false);
             }}
             className="flex-1 flex flex-col items-center justify-center py-2 gap-1 transition-colors"
-            style={{ color: activeView === view ? 'var(--df-accent)' : 'var(--df-muted)' }}
+            style={{ color: isActive ? 'var(--df-accent)' : 'var(--df-muted)' }}
           >
             <div
               className="w-8 h-7 rounded flex items-center justify-center text-base transition-all"
-              style={{ background: activeView === view ? 'var(--df-accent)' : 'transparent' }}
+              style={{ background: isActive ? 'var(--df-accent)' : 'transparent' }}
             >
               {icon}
             </div>
             <span className="text-[10px] font-medium">{label}</span>
           </button>
-        ))}
+          );
+        })}
 
         {/* More button */}
         <button

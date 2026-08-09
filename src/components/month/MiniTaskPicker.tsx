@@ -5,12 +5,13 @@ import { usePlannerStore } from '@/store/plannerStore';
 interface Props {
     date: string;
     onClose: () => void;
+    initialSlot?: number;
 }
 
-export default function MiniTaskPicker({ date, onClose }: Props) {
+export default function MiniTaskPicker({ date, onClose, initialSlot }: Props) {
     const { tasks } = useTaskStore();
     const { addTask } = usePlannerStore();
-    const [slot, setSlot] = useState(16); // default 8:00am = slot 16
+    const [slot, setSlot] = useState(initialSlot ?? 16); // default 8:00am = slot 16
 
     const pick = async (taskId: string) => {
         await addTask(taskId, date, slot);

@@ -1,28 +1,51 @@
-import { useEffect, useMemo, useCallback } from 'react';
-import { format, addDays, addWeeks, subWeeks } from 'date-fns';
+import { useEffect, useMemo, useCallback, useState } from 'react';
+import { format, addWeeks, subWeeks } from 'date-fns';
 import { useDroppable } from '@dnd-kit/core';
 import { generateSlots } from '@/lib/intervals';
 import WeekTaskBlock from './WeekTaskBlock';
+import MiniTaskPicker from '@/components/month/MiniTaskPicker';
 import { useUIStore } from '@/store/uiStore';
 import { useSwipe } from '@/hooks/useSwipe';
 import type { ScheduledTask } from '@/types';
 
 interface SlotProps {
   id: string;
+  date: string;
+  slotIndex: number;
   scheduledTasks: ScheduledTask[];
 }
 
-function WeekSlotCell({ id, scheduledTasks }: SlotProps) {
+function WeekSlotCell({ id, date, slotIndex, scheduledTasks }: SlotProps) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const [showPicker, setShowPicker] = useState(false);
+
   return (
     <div
       ref={setNodeRef}
-      className={`border-r border-b dark:border-gray-700 relative min-h-[36px] transition-colors
+      className={`group border-r border-b dark:border-gray-700 relative min-h-[36px] transition-colors
         ${isOver ? 'bg-brand-accent/10' : ''}`}
     >
       {scheduledTasks.map((st, i) => (
         <WeekTaskBlock key={st.id} scheduledTask={st} index={i} total={scheduledTasks.length} />
       ))}
+
+      {/* + button — visible on hover, adds a task to this exact day/slot */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowPicker(true);
+        }}
+        className="absolute top-0 right-0 w-4 h-4 flex items-center justify-center
+          text-gray-400 hover:text-white hover:bg-brand-accent rounded-bl
+          opacity-0 group-hover:opacity-100 transition-opacity z-20 text-[11px] font-bold leading-none"
+        title="Add task to this slot"
+      >
+        +
+      </button>
+
+      {showPicker && (
+        <MiniTaskPicker date={date} initialSlot={slotIndex} onClose={() => setShowPicker(false)} />
+      )}
     </div>
   );
 }
@@ -135,6 +158,8 @@ export default function WeekView({ weekDates, scheduledTasks, fetchByWeek }: Pro
               <WeekSlotCell
                 key={date}
                 id={`week-slot-${date}::${slot.index}`}
+                date={date}
+                slotIndex={slot.index}
                 scheduledTasks={(tasksByDate.get(date) ?? []).filter(
                   (t) => t.startSlot === slot.index
                 )}
