@@ -1,5 +1,17 @@
 import { startOfWeek, subDays, addDays, format, parseISO, getDay } from 'date-fns';
-import type { DayKey } from '@/store/taskHoursStore';
+
+export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+
+export const WEEK_DAY_ORDER: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+export const WEEK_DAY_LABELS: Record<DayKey, string> = {
+  mon: 'Mon',
+  tue: 'Tue',
+  wed: 'Wed',
+  thu: 'Thu',
+  fri: 'Fri',
+  sat: 'Sat',
+  sun: 'Sun',
+};
 
 // ── Work-week boundary ─────────────────────────────────────────────────────
 // The work week resets Monday 8:00 AM PHT and runs through the following

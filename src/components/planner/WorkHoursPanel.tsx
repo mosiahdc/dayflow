@@ -2,20 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTaskStore } from '@/store/taskStore';
 import { usePlannerStore } from '@/store/plannerStore';
 import {
-  useTaskHoursStore,
-  WEEK_DAY_ORDER,
-  WEEK_DAY_LABELS,
-  EMPTY_WEEKLY_HOURS,
-  sumWeeklyHours,
-  type DayKey,
-  type WeeklyHours,
-} from '@/store/taskHoursStore';
-import {
   calendarMonday,
   getWorkWeekStart,
   getWorkWeekFetchRange,
   dayKeyOf,
   workWeekLabel,
+  WEEK_DAY_ORDER,
+  WEEK_DAY_LABELS,
+  type DayKey,
 } from '@/lib/workWeek';
 import type { Task } from '@/types';
 
@@ -28,44 +22,34 @@ function fmtHrs(n: number): string {
   return `${rounded}h`;
 }
 
-function fmtMinsAsHrs(mins: number): number {
+function minsToHrs(mins: number): number {
   return Math.round((mins / 60) * 10) / 10;
 }
 
-// Stacked progress bar: solid fill = completed, faint fill = scheduled-but-not-done yet,
-// remaining track = still open. Falls back to a soft cap when no target is set, so
-// untracked-but-active tasks still get a meaningful bar instead of an empty one.
-function ProgressBar({
-  completed,
-  scheduled,
-  target,
-}: {
-  completed: number;
-  scheduled: number;
-  target: number;
-}) {
-  const max = target > 0 ? target : Math.max(scheduled, completed, 1);
+const EMPTY_DAY_MAP: Record<DayKey, number> = {
+  mon: 0,
+  tue: 0,
+  wed: 0,
+  thu: 0,
+  fri: 0,
+  sat: 0,
+  sun: 0,
+};
+
+// Progress bar: solid fill = completed hours out of planned hours.
+function ProgressBar({ completed, planned }: { completed: number; planned: number }) {
+  const max = Math.max(planned, completed, 1);
   const completedPct = Math.min(100, (completed / max) * 100);
-  const scheduledPct = Math.min(100, (scheduled / max) * 100);
-  const overTarget = target > 0 && completed >= target;
+  const overComplete = planned > 0 && completed >= planned;
 
   return (
     <div
       className="relative w-full h-2.5 rounded-full overflow-hidden shrink-0"
       style={{ background: 'var(--df-border)' }}
     >
-      {scheduledPct > completedPct && (
-        <div
-          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-          style={{ width: `${scheduledPct}%`, background: 'var(--df-accent)', opacity: 0.25 }}
-        />
-      )}
       <div
         className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
-        style={{
-          width: `${completedPct}%`,
-          background: overTarget ? 'var(--df-green)' : 'var(--df-accent)',
-        }}
+        style={{ width: `${completedPct}%`, background: overComplete ? 'var(--df-green)' : 'var(--df-accent)' }}
       />
     </div>
   );
@@ -73,29 +57,16 @@ function ProgressBar({
 
 interface TaskHoursRow {
   task: Task;
-  targetHours: number;
-  targets: WeeklyHours;
-  scheduledHours: number;
+  plannedHours: number;
   completedHours: number;
-  actualByDay: Record<DayKey, number>; // completed hours per weekday
+  plannedByDay: Record<DayKey, number>;
+  completedByDay: Record<DayKey, number>;
 }
 
 export default function WorkHoursPanel({ date }: Props) {
   const { tasks, fetchAll: fetchAllTasks } = useTaskStore();
   const { scheduledTasks, fetchByWeek } = usePlannerStore();
-  const {
-    targets,
-    loading: targetsLoading,
-    fetchForWeek,
-    upsertTargets,
-    copyPreviousWeek,
-    removeTargets,
-  } = useTaskHoursStore();
-
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<WeeklyHours>(EMPTY_WEEKLY_HOURS);
-  const [saving, setSaving] = useState(false);
-  const [addingTaskId, setAddingTaskId] = useState('');
 
   const weekStart = useMemo(() => calendarMonday(date), [date]);
 
@@ -106,92 +77,47 @@ export default function WorkHoursPanel({ date }: Props) {
   useEffect(() => {
     const { start, end } = getWorkWeekFetchRange(weekStart);
     fetchByWeek(start, end);
-    fetchForWeek(weekStart);
   }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const workTasks = useMemo(() => tasks.filter((t) => t.category === 'work'), [tasks]);
 
   const rows: TaskHoursRow[] = useMemo(() => {
-    return workTasks.map((task) => {
-      const targetRow = targets.find((t) => t.taskId === task.id && t.weekStart === weekStart);
-      const taskTargets = targetRow?.targets ?? EMPTY_WEEKLY_HOURS;
+    return workTasks
+      .map((task) => {
+        const relevant = scheduledTasks.filter(
+          (st) =>
+            st.taskId === task.id &&
+            !st.id.startsWith('overflow-') &&
+            getWorkWeekStart(st.date, st.startSlot) === weekStart
+        );
 
-      const relevant = scheduledTasks.filter(
-        (st) =>
-          st.taskId === task.id &&
-          !st.id.startsWith('overflow-') &&
-          getWorkWeekStart(st.date, st.startSlot) === weekStart
-      );
+        const plannedByDay = { ...EMPTY_DAY_MAP };
+        const completedByDay = { ...EMPTY_DAY_MAP };
 
-      const scheduledMins = relevant.reduce((acc, st) => acc + st.task.durationMins, 0);
-      const completedMins = relevant
-        .filter((st) => st.done)
-        .reduce((acc, st) => acc + st.task.durationMins, 0);
+        for (const st of relevant) {
+          const key = dayKeyOf(st.date);
+          plannedByDay[key] += st.task.durationMins;
+          if (st.done) completedByDay[key] += st.task.durationMins;
+        }
 
-      const actualByDay = { ...EMPTY_WEEKLY_HOURS } as Record<DayKey, number>;
-      for (const st of relevant) {
-        if (!st.done) continue;
-        const key = dayKeyOf(st.date);
-        actualByDay[key] += st.task.durationMins;
-      }
-      (Object.keys(actualByDay) as DayKey[]).forEach((k) => {
-        actualByDay[k] = fmtMinsAsHrs(actualByDay[k]);
-      });
+        (Object.keys(plannedByDay) as DayKey[]).forEach((k) => {
+          plannedByDay[k] = minsToHrs(plannedByDay[k]);
+          completedByDay[k] = minsToHrs(completedByDay[k]);
+        });
 
-      return {
-        task,
-        targetHours: sumWeeklyHours(taskTargets),
-        targets: taskTargets,
-        scheduledHours: fmtMinsAsHrs(scheduledMins),
-        completedHours: fmtMinsAsHrs(completedMins),
-        actualByDay,
-      };
-    });
-  }, [workTasks, targets, scheduledTasks, weekStart]);
+        const plannedHours = minsToHrs(relevant.reduce((acc, st) => acc + st.task.durationMins, 0));
+        const completedHours = minsToHrs(
+          relevant.filter((st) => st.done).reduce((acc, st) => acc + st.task.durationMins, 0)
+        );
 
-  // Only show tasks that are tracked (have a target) or already have activity this week
-  const visibleRows = rows.filter((r) => r.targetHours > 0 || r.scheduledHours > 0);
-  const untrackedTasks = workTasks.filter((t) => !visibleRows.some((r) => r.task.id === t.id));
+        return { task, plannedHours, completedHours, plannedByDay, completedByDay };
+      })
+      .filter((r) => r.plannedHours > 0); // only show tasks with something actually scheduled this work-week
+  }, [workTasks, scheduledTasks, weekStart]);
 
-  const totalTarget = visibleRows.reduce((acc, r) => acc + r.targetHours, 0);
-  const totalCompleted = visibleRows.reduce((acc, r) => acc + r.completedHours, 0);
-  const totalScheduled = visibleRows.reduce((acc, r) => acc + r.scheduledHours, 0);
-  const overallPct = totalTarget > 0 ? Math.min(100, Math.round((totalCompleted / totalTarget) * 100)) : 0;
-
-  const startEdit = (row: TaskHoursRow) => {
-    setExpandedTaskId(row.task.id);
-    setDraft(row.targets);
-  };
-
-  const closeEdit = () => {
-    setExpandedTaskId(null);
-    setDraft(EMPTY_WEEKLY_HOURS);
-  };
-
-  const saveEdit = async (taskId: string) => {
-    setSaving(true);
-    await upsertTargets(taskId, weekStart, draft);
-    setSaving(false);
-    closeEdit();
-  };
-
-  const handleCopyPrevious = async (taskId: string) => {
-    const prev = await copyPreviousWeek(taskId, weekStart);
-    if (prev) setDraft(prev);
-  };
-
-  const handleRemove = async (taskId: string) => {
-    await removeTargets(taskId, weekStart);
-    if (expandedTaskId === taskId) closeEdit();
-  };
-
-  const handleAddTask = async (taskId: string) => {
-    if (!taskId) return;
-    await upsertTargets(taskId, weekStart, EMPTY_WEEKLY_HOURS);
-    setAddingTaskId('');
-    setExpandedTaskId(taskId);
-    setDraft(EMPTY_WEEKLY_HOURS);
-  };
+  const totalPlanned = rows.reduce((acc, r) => acc + r.plannedHours, 0);
+  const totalCompleted = rows.reduce((acc, r) => acc + r.completedHours, 0);
+  const overallPct = totalPlanned > 0 ? Math.min(100, Math.round((totalCompleted / totalPlanned) * 100)) : 0;
 
   if (workTasks.length === 0) return null;
 
@@ -206,7 +132,7 @@ export default function WorkHoursPanel({ date }: Props) {
           <span className="font-semibold text-sm flex items-center gap-1.5" style={{ color: 'var(--df-text)' }}>
             🕐 Work Hours This Week
           </span>
-          {totalTarget > 0 && (
+          {totalPlanned > 0 && (
             <span
               className="text-xs font-bold shrink-0"
               style={{ color: overallPct >= 100 ? 'var(--df-green)' : 'var(--df-accent)' }}
@@ -218,12 +144,11 @@ export default function WorkHoursPanel({ date }: Props) {
         <span className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
           {workWeekLabel(weekStart)}
         </span>
-        {totalTarget > 0 && (
+        {totalPlanned > 0 && (
           <>
-            <ProgressBar completed={totalCompleted} scheduled={totalScheduled} target={totalTarget} />
+            <ProgressBar completed={totalCompleted} planned={totalPlanned} />
             <span className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
-              {fmtHrs(totalCompleted)} done of {fmtHrs(totalTarget)}h target
-              {totalScheduled > totalCompleted ? ` · ${fmtHrs(totalScheduled)}h scheduled` : ''}
+              {fmtHrs(totalCompleted)} done of {fmtHrs(totalPlanned)}h planned
             </span>
           </>
         )}
@@ -231,20 +156,23 @@ export default function WorkHoursPanel({ date }: Props) {
 
       {/* Rows */}
       <div className="flex flex-col">
-        {visibleRows.length === 0 && !targetsLoading && (
-          <p className="text-xs text-center py-4" style={{ color: 'var(--df-muted)' }}>
-            No work hours tracked yet this week.
+        {rows.length === 0 && (
+          <p className="text-xs text-center py-4 px-4" style={{ color: 'var(--df-muted)' }}>
+            No work hours scheduled yet this week — drag a work task onto the Day or Week grid to
+            start tracking.
           </p>
         )}
 
-        {visibleRows.map((row) => {
+        {rows.map((row) => {
           const isExpanded = expandedTaskId === row.task.id;
           const pct =
-            row.targetHours > 0 ? Math.min(100, Math.round((row.completedHours / row.targetHours) * 100)) : 0;
+            row.plannedHours > 0
+              ? Math.min(100, Math.round((row.completedHours / row.plannedHours) * 100))
+              : 0;
           return (
             <div key={row.task.id} style={{ borderTop: '1px solid var(--df-border)' }}>
               <button
-                onClick={() => (isExpanded ? closeEdit() : startEdit(row))}
+                onClick={() => setExpandedTaskId(isExpanded ? null : row.task.id)}
                 className="w-full flex flex-col gap-1.5 px-4 py-3 text-left hover:brightness-110 transition-all"
               >
                 <div className="flex items-center gap-2">
@@ -254,130 +182,50 @@ export default function WorkHoursPanel({ date }: Props) {
                   </p>
                   <span
                     className="text-xs font-bold shrink-0"
-                    style={{
-                      color:
-                        row.targetHours > 0
-                          ? pct >= 100
-                            ? 'var(--df-green)'
-                            : 'var(--df-accent)'
-                          : 'var(--df-muted)',
-                    }}
+                    style={{ color: pct >= 100 ? 'var(--df-green)' : 'var(--df-accent)' }}
                   >
-                    {row.targetHours > 0 ? `${pct}%` : fmtHrs(row.completedHours)}
+                    {pct}%
                   </span>
                   <span className="text-xs shrink-0" style={{ color: 'var(--df-muted)' }}>
-                    {isExpanded ? '▲' : '✎'}
+                    {isExpanded ? '▲' : '▾'}
                   </span>
                 </div>
 
-                <ProgressBar completed={row.completedHours} scheduled={row.scheduledHours} target={row.targetHours} />
+                <ProgressBar completed={row.completedHours} planned={row.plannedHours} />
 
                 <span className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
-                  {row.targetHours > 0
-                    ? `${fmtHrs(row.completedHours)}h done of ${fmtHrs(row.targetHours)}h target${
-                        row.scheduledHours > row.completedHours ? ` · ${fmtHrs(row.scheduledHours)}h scheduled` : ''
-                      }`
-                    : `${fmtHrs(row.completedHours)}h logged this week · no target set`}
+                  {fmtHrs(row.completedHours)}h done of {fmtHrs(row.plannedHours)}h planned
                 </span>
               </button>
 
+              {/* Read-only per-day breakdown — pulled straight from the calendar, nothing to edit */}
               {isExpanded && (
-                <div className="px-4 pb-3 flex flex-col gap-2">
-                  <div className="grid grid-cols-7 gap-1">
-                    {WEEK_DAY_ORDER.map((key) => (
-                      <div key={key} className="flex flex-col items-center gap-0.5">
-                        <label className="text-[10px] font-semibold" style={{ color: 'var(--df-muted)' }}>
-                          {WEEK_DAY_LABELS[key]}
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={24}
-                          step={0.5}
-                          value={draft[key] === 0 ? '' : draft[key]}
-                          placeholder="0"
-                          onChange={(e) => {
-                            const v = parseFloat(e.target.value);
-                            setDraft((d) => ({ ...d, [key]: isNaN(v) ? 0 : Math.max(0, Math.min(24, v)) }));
-                          }}
-                          className="w-full text-center text-xs rounded px-1 py-1"
-                          style={{
-                            background: 'var(--df-surface2)',
-                            border: '1px solid var(--df-border2)',
-                            color: 'var(--df-text)',
-                          }}
-                        />
-                        <span className="text-[9px]" style={{ color: 'var(--df-muted)' }}>
-                          {row.actualByDay[key] > 0 ? `${fmtHrs(row.actualByDay[key])} done` : '—'}
+                <div className="px-4 pb-3 grid grid-cols-7 gap-1">
+                  {WEEK_DAY_ORDER.map((key) => (
+                    <div
+                      key={key}
+                      className="flex flex-col items-center gap-0.5 rounded py-1.5"
+                      style={{ background: 'var(--df-surface2)' }}
+                    >
+                      <span className="text-[10px] font-semibold" style={{ color: 'var(--df-muted)' }}>
+                        {WEEK_DAY_LABELS[key]}
+                      </span>
+                      <span className="text-[11px] font-bold" style={{ color: 'var(--df-text)' }}>
+                        {row.plannedByDay[key] > 0 ? fmtHrs(row.plannedByDay[key]) : '—'}
+                      </span>
+                      {row.completedByDay[key] > 0 && (
+                        <span className="text-[9px]" style={{ color: 'var(--df-green)' }}>
+                          {fmtHrs(row.completedByDay[key])} done
                         </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleCopyPrevious(row.task.id)}
-                        className="text-[11px] px-2 py-1 rounded"
-                        style={{ color: 'var(--df-accent)', border: '1px solid var(--df-border2)' }}
-                      >
-                        Copy last week
-                      </button>
-                      <button
-                        onClick={() => handleRemove(row.task.id)}
-                        className="text-[11px] px-2 py-1 rounded"
-                        style={{ color: 'var(--df-red)', border: '1px solid var(--df-border2)' }}
-                      >
-                        Remove
-                      </button>
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={closeEdit}
-                        className="text-[11px] px-3 py-1 rounded"
-                        style={{ color: 'var(--df-muted)', border: '1px solid var(--df-border2)' }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => saveEdit(row.task.id)}
-                        disabled={saving}
-                        className="text-[11px] px-3 py-1 rounded font-semibold text-white disabled:opacity-50"
-                        style={{ background: 'var(--df-accent)' }}
-                      >
-                        {saving ? 'Saving…' : 'Save'}
-                      </button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               )}
             </div>
           );
         })}
       </div>
-
-      {/* Add a work task to track */}
-      {untrackedTasks.length > 0 && (
-        <div className="px-4 py-2.5" style={{ borderTop: '1px solid var(--df-border)' }}>
-          <select
-            value={addingTaskId}
-            onChange={(e) => handleAddTask(e.target.value)}
-            className="w-full text-xs rounded px-2 py-1.5"
-            style={{
-              background: 'var(--df-surface2)',
-              border: '1px solid var(--df-border2)',
-              color: 'var(--df-muted)',
-            }}
-          >
-            <option value="">+ Track a work task…</option>
-            {untrackedTasks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
     </div>
   );
 }
