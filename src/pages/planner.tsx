@@ -28,6 +28,7 @@ import PriorityPanel from '@/components/sidebar/PriorityPanel';
 import DateNav from '@/components/planner/DateNav';
 import ReflectionPanel from '@/components/planner/ReflectionPanel';
 import GlanceBar from '@/components/planner/GlanceBar';
+import WorkHoursPanel from '@/components/planner/WorkHoursPanel';
 import ReadingStatsWidget from '@/components/documents/ReadingStatsWidget';
 import type { DragData, Task, View } from '@/types';
 
@@ -233,6 +234,7 @@ export default function PlannerPage() {
                 <DayView date={selectedDate} scheduledTasks={scheduledTasks} />
               </div>
               <div className="lg:w-72 shrink-0 flex flex-col gap-4">
+                <WorkHoursPanel date={selectedDate} />
                 <PriorityPanel />
                 <ReadingStatsWidget />
                 <ReflectionPanel date={selectedDate} />
