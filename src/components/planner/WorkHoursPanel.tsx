@@ -32,6 +32,45 @@ function fmtMinsAsHrs(mins: number): number {
   return Math.round((mins / 60) * 10) / 10;
 }
 
+// Stacked progress bar: solid fill = completed, faint fill = scheduled-but-not-done yet,
+// remaining track = still open. Falls back to a soft cap when no target is set, so
+// untracked-but-active tasks still get a meaningful bar instead of an empty one.
+function ProgressBar({
+  completed,
+  scheduled,
+  target,
+}: {
+  completed: number;
+  scheduled: number;
+  target: number;
+}) {
+  const max = target > 0 ? target : Math.max(scheduled, completed, 1);
+  const completedPct = Math.min(100, (completed / max) * 100);
+  const scheduledPct = Math.min(100, (scheduled / max) * 100);
+  const overTarget = target > 0 && completed >= target;
+
+  return (
+    <div
+      className="relative w-full h-2.5 rounded-full overflow-hidden shrink-0"
+      style={{ background: 'var(--df-border)' }}
+    >
+      {scheduledPct > completedPct && (
+        <div
+          className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+          style={{ width: `${scheduledPct}%`, background: 'var(--df-accent)', opacity: 0.25 }}
+        />
+      )}
+      <div
+        className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
+        style={{
+          width: `${completedPct}%`,
+          background: overTarget ? 'var(--df-green)' : 'var(--df-accent)',
+        }}
+      />
+    </div>
+  );
+}
+
 interface TaskHoursRow {
   task: Task;
   targetHours: number;
@@ -116,6 +155,7 @@ export default function WorkHoursPanel({ date }: Props) {
 
   const totalTarget = visibleRows.reduce((acc, r) => acc + r.targetHours, 0);
   const totalCompleted = visibleRows.reduce((acc, r) => acc + r.completedHours, 0);
+  const totalScheduled = visibleRows.reduce((acc, r) => acc + r.scheduledHours, 0);
   const overallPct = totalTarget > 0 ? Math.min(100, Math.round((totalCompleted / totalTarget) * 100)) : 0;
 
   const startEdit = (row: TaskHoursRow) => {
@@ -161,14 +201,17 @@ export default function WorkHoursPanel({ date }: Props) {
       style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
     >
       {/* Header */}
-      <div className="px-4 py-3 flex flex-col gap-0.5" style={{ borderBottom: '1px solid var(--df-border)' }}>
+      <div className="px-4 py-3 flex flex-col gap-1.5" style={{ borderBottom: '1px solid var(--df-border)' }}>
         <div className="flex items-center justify-between gap-2">
           <span className="font-semibold text-sm flex items-center gap-1.5" style={{ color: 'var(--df-text)' }}>
             🕐 Work Hours This Week
           </span>
           {totalTarget > 0 && (
-            <span className="text-xs font-semibold" style={{ color: 'var(--df-muted)' }}>
-              {fmtHrs(totalCompleted)} / {fmtHrs(totalTarget)}h
+            <span
+              className="text-xs font-bold shrink-0"
+              style={{ color: overallPct >= 100 ? 'var(--df-green)' : 'var(--df-accent)' }}
+            >
+              {overallPct}%
             </span>
           )}
         </div>
@@ -176,15 +219,13 @@ export default function WorkHoursPanel({ date }: Props) {
           {workWeekLabel(weekStart)}
         </span>
         {totalTarget > 0 && (
-          <div className="h-1 rounded-full mt-1.5 overflow-hidden" style={{ background: 'var(--df-border)' }}>
-            <div
-              className="h-1 transition-all duration-500"
-              style={{
-                width: `${overallPct}%`,
-                background: overallPct >= 100 ? 'var(--df-green)' : 'var(--df-accent)',
-              }}
-            />
-          </div>
+          <>
+            <ProgressBar completed={totalCompleted} scheduled={totalScheduled} target={totalTarget} />
+            <span className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
+              {fmtHrs(totalCompleted)} done of {fmtHrs(totalTarget)}h target
+              {totalScheduled > totalCompleted ? ` · ${fmtHrs(totalScheduled)}h scheduled` : ''}
+            </span>
+          </>
         )}
       </div>
 
@@ -204,46 +245,39 @@ export default function WorkHoursPanel({ date }: Props) {
             <div key={row.task.id} style={{ borderTop: '1px solid var(--df-border)' }}>
               <button
                 onClick={() => (isExpanded ? closeEdit() : startEdit(row))}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:brightness-110 transition-all"
+                className="w-full flex flex-col gap-1.5 px-4 py-3 text-left hover:brightness-110 transition-all"
               >
-                <div className="w-1.5 h-8 rounded-full shrink-0" style={{ backgroundColor: row.task.color }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate" style={{ color: 'var(--df-text)' }}>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-6 rounded-full shrink-0" style={{ backgroundColor: row.task.color }} />
+                  <p className="text-xs font-semibold truncate flex-1" style={{ color: 'var(--df-text)' }}>
                     {row.task.title}
                   </p>
-                  {row.targetHours > 0 ? (
-                    <div
-                      className="h-1 rounded-full mt-1 overflow-hidden"
-                      style={{ background: 'var(--df-border)', maxWidth: '160px' }}
-                    >
-                      <div
-                        className="h-1"
-                        style={{
-                          width: `${pct}%`,
-                          background: pct >= 100 ? 'var(--df-green)' : 'var(--df-accent)',
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <p className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
-                      No target set
-                    </p>
-                  )}
+                  <span
+                    className="text-xs font-bold shrink-0"
+                    style={{
+                      color:
+                        row.targetHours > 0
+                          ? pct >= 100
+                            ? 'var(--df-green)'
+                            : 'var(--df-accent)'
+                          : 'var(--df-muted)',
+                    }}
+                  >
+                    {row.targetHours > 0 ? `${pct}%` : fmtHrs(row.completedHours)}
+                  </span>
+                  <span className="text-xs shrink-0" style={{ color: 'var(--df-muted)' }}>
+                    {isExpanded ? '▲' : '✎'}
+                  </span>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-semibold" style={{ color: 'var(--df-text)' }}>
-                    {row.targetHours > 0
-                      ? `${fmtHrs(row.completedHours)} / ${fmtHrs(row.targetHours)}h`
-                      : `${fmtHrs(row.completedHours)}h`}
-                  </p>
-                  {row.scheduledHours !== row.completedHours && (
-                    <p className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
-                      {fmtHrs(row.scheduledHours)}h scheduled
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs shrink-0" style={{ color: 'var(--df-muted)' }}>
-                  {isExpanded ? '▲' : '✎'}
+
+                <ProgressBar completed={row.completedHours} scheduled={row.scheduledHours} target={row.targetHours} />
+
+                <span className="text-[10px]" style={{ color: 'var(--df-muted)' }}>
+                  {row.targetHours > 0
+                    ? `${fmtHrs(row.completedHours)}h done of ${fmtHrs(row.targetHours)}h target${
+                        row.scheduledHours > row.completedHours ? ` · ${fmtHrs(row.scheduledHours)}h scheduled` : ''
+                      }`
+                    : `${fmtHrs(row.completedHours)}h logged this week · no target set`}
                 </span>
               </button>
 

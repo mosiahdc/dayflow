@@ -192,7 +192,7 @@ export default function PlannerPage() {
               onClick={() => setSidebar(false)}
             />
             <div
-              className="fixed md:relative top-0 left-0 z-20 md:z-auto w-72 md:w-64 shrink-0 flex flex-col"
+              className="fixed md:relative top-0 left-0 z-20 md:z-auto w-72 md:w-64 shrink-0 flex flex-col overflow-y-auto"
               style={{
                 height: '100%',
                 paddingTop: 'env(safe-area-inset-top)',
@@ -201,6 +201,9 @@ export default function PlannerPage() {
             >
               <div className="hidden md:block shrink-0" style={{ height: '52px' }} />
               <TaskLibrary />
+              <div className="mt-4 px-0">
+                <WorkHoursPanel date={selectedDate} />
+              </div>
             </div>
           </>
         )}
@@ -234,7 +237,6 @@ export default function PlannerPage() {
                 <DayView date={selectedDate} scheduledTasks={scheduledTasks} />
               </div>
               <div className="lg:w-72 shrink-0 flex flex-col gap-4">
-                <WorkHoursPanel date={selectedDate} />
                 <PriorityPanel />
                 <ReadingStatsWidget />
                 <ReflectionPanel date={selectedDate} />
