@@ -19,7 +19,22 @@ export interface Trade {
   status: string; // close_reason for Exness, status for MEXC
   source: 'exness' | 'mexc' | 'manual'; // track origin
   createdAt: string;
+
+  // Exness position/order reference. This is kept so later exits from the same
+  // opening batch can still be tied back to the original positions.
+  referenceOrderId?: string | undefined;
+
+  // Logical-trade metadata. Raw database rows stay untouched; these fields are
+  // added in memory when several Exness orders are consolidated into one trade.
+  sourceIds?: string[];
+  referenceOrderIds?: string[];
+  orderCount?: number;
 }
+
+type TradeInput = Omit<
+  Trade,
+  'id' | 'userId' | 'createdAt' | 'sourceIds' | 'referenceOrderIds' | 'orderCount'
+>;
 
 // ── Parsers ───────────────────────────────────────────────────────────────────
 
@@ -32,6 +47,14 @@ const parseNum = (val: unknown): number => {
   return 0;
 };
 
+const parseText = (...values: unknown[]): string | undefined => {
+  for (const value of values) {
+    const text = String(value ?? '').trim();
+    if (text) return text;
+  }
+  return undefined;
+};
+
 // Convert UTC ISO timestamp → PHT (UTC+8) string 'yyyy-MM-dd HH:mm:ss'
 function utcToPHT(iso: string): string {
   if (!iso) return '';
@@ -41,9 +64,7 @@ function utcToPHT(iso: string): string {
 }
 
 // Parse Exness CSV row
-export function parseExnessRow(
-  row: Record<string, unknown>
-): Omit<Trade, 'id' | 'userId' | 'createdAt'> | null {
+export function parseExnessRow(row: Record<string, unknown>): TradeInput | null {
   try {
     const symbol = String(row['symbol'] ?? '').trim();
     if (!symbol) return null;
@@ -63,6 +84,14 @@ export function parseExnessRow(
       marginMode: 'Exness',
       status: String(row['close_reason'] ?? 'closed'),
       source: 'exness',
+      referenceOrderId: parseText(
+        row['position_id'],
+        row['positionId'],
+        row['Position ID'],
+        row['order_id'],
+        row['orderId'],
+        row['Order ID']
+      ),
     };
   } catch {
     return null;
@@ -70,9 +99,7 @@ export function parseExnessRow(
 }
 
 // Parse MEXC Excel row (legacy)
-export function parseMexcRow(
-  row: Record<string, unknown>
-): Omit<Trade, 'id' | 'userId' | 'createdAt'> | null {
+export function parseMexcRow(row: Record<string, unknown>): TradeInput | null {
   try {
     const futures = (row['Futures'] ?? row['futures'] ?? '') as string;
     if (!futures) return null;
@@ -111,9 +138,185 @@ const mapTrade = (t: Record<string, unknown>): Trade => ({
   tradingFee: parseNum(t.trading_fee),
   realizedPnl: parseNum(t.realized_pnl),
   status: (t.status as string) ?? '',
-  source: (t.source as 'exness' | 'mexc' | 'manual') ?? 'manual',
+  source:
+    (t.source as 'exness' | 'mexc' | 'manual') ??
+    (String(t.margin_mode ?? '').toLowerCase() === 'exness' ? 'exness' : 'manual'),
+  referenceOrderId: parseText(t.reference_order_id, t.position_id, t.order_id),
   createdAt: t.created_at as string,
+  sourceIds: [t.id as string],
+  referenceOrderIds: parseText(t.reference_order_id, t.position_id, t.order_id)
+    ? [parseText(t.reference_order_id, t.position_id, t.order_id)!]
+    : [],
+  orderCount: 1,
 });
+
+// ── Exness logical-trade consolidation ────────────────────────────────────────
+
+const EXNESS_ENTRY_WINDOW_MS = 2 * 60 * 1000;
+
+function parsePhtMs(value: string): number | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(value);
+  if (!match) return null;
+  const [, y, mo, d, h, mi, s = '0'] = match;
+  return Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+}
+
+function isExnessTrade(trade: Trade): boolean {
+  return trade.source === 'exness' || trade.marginMode.trim().toLowerCase() === 'exness';
+}
+
+function normalizeSymbol(symbol: string): string {
+  return symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function weightedAverage(members: Trade[], field: 'avgEntryPrice' | 'avgClosePrice'): number {
+  const totalWeight = members.reduce((sum, t) => sum + Math.abs(t.closingQty), 0);
+  if (totalWeight > 0) {
+    return (
+      members.reduce((sum, t) => sum + t[field] * Math.abs(t.closingQty), 0) / totalWeight
+    );
+  }
+  return members.reduce((sum, t) => sum + t[field], 0) / members.length;
+}
+
+function stableLeader(members: Trade[]): Trade {
+  return [...members].sort((a, b) => {
+    const createdCompare = (a.createdAt || '').localeCompare(b.createdAt || '');
+    return createdCompare !== 0 ? createdCompare : a.id.localeCompare(b.id);
+  })[0]!;
+}
+
+function consolidateGroup(members: Trade[]): Trade {
+  if (members.length === 1) {
+    const only = members[0]!;
+    return {
+      ...only,
+      sourceIds: only.sourceIds?.length ? only.sourceIds : [only.id],
+      referenceOrderIds: only.referenceOrderId ? [only.referenceOrderId] : [],
+      orderCount: 1,
+    };
+  }
+
+  const leader = stableLeader(members);
+  const refs = [...new Set(members.flatMap((t) => t.referenceOrderId ? [t.referenceOrderId] : []))];
+  const sourceIds = [...new Set(members.flatMap((t) => t.sourceIds?.length ? t.sourceIds : [t.id]))];
+  const statuses = [...new Set(members.map((t) => t.status).filter(Boolean))];
+
+  return {
+    ...leader,
+    // Keep a stable persisted row id as the logical trade id. Notes/video remain
+    // attached even when more positions from this opening batch close later.
+    id: leader.id,
+    openTime: members.reduce((min, t) => (t.openTime < min ? t.openTime : min), members[0]!.openTime),
+    // The logical trade stays the same while partial TP exits arrive. Its close
+    // time simply extends to the latest child order that has exited so far.
+    closeTime: members.reduce((max, t) => (t.closeTime > max ? t.closeTime : max), members[0]!.closeTime),
+    avgEntryPrice: weightedAverage(members, 'avgEntryPrice'),
+    avgClosePrice: weightedAverage(members, 'avgClosePrice'),
+    closingQty: members.reduce((sum, t) => sum + t.closingQty, 0),
+    tradingFee: members.reduce((sum, t) => sum + t.tradingFee, 0),
+    realizedPnl: members.reduce((sum, t) => sum + t.realizedPnl, 0),
+    status: statuses.length <= 1 ? (statuses[0] ?? leader.status) : statuses.join(' + '),
+    source: 'exness',
+    referenceOrderId: leader.referenceOrderId,
+    referenceOrderIds: refs,
+    sourceIds,
+    orderCount: members.length,
+  };
+}
+
+/**
+ * Consolidate a burst of Exness positions into one logical trade.
+ *
+ * Rules:
+ * - Exness only; MEXC/manual records remain one row each.
+ * - Same symbol + same direction.
+ * - Orders opened within 2 minutes of the first order in the batch are one trade.
+ * - Close time is NOT used for grouping, so 2 TP exits now and the remaining 13
+ *   several minutes later still become the same logical trade once they arrive.
+ * - Position/order references are retained on the logical trade.
+ */
+export function consolidateTrades(rawTrades: Trade[]): Trade[] {
+  const untouched: Trade[] = [];
+  const exnessByKey = new Map<string, Trade[]>();
+
+  // Drop exact repeated Exness imports when a position/order reference is present.
+  // Distinct partial-close rows are retained because their close/qty/PNL differ.
+  const exactSeen = new Map<string, Trade>();
+
+  for (const trade of rawTrades) {
+    if (!isExnessTrade(trade) || parsePhtMs(trade.openTime) === null) {
+      untouched.push({
+        ...trade,
+        sourceIds: trade.sourceIds?.length ? trade.sourceIds : [trade.id],
+        referenceOrderIds: trade.referenceOrderId ? [trade.referenceOrderId] : [],
+        orderCount: 1,
+      });
+      continue;
+    }
+
+    let tradeForGrouping = trade;
+    if (trade.referenceOrderId) {
+      const exactKey = [
+        trade.referenceOrderId,
+        trade.openTime,
+        trade.closeTime,
+        trade.closingQty,
+        trade.realizedPnl,
+      ].join('|');
+      const existing = exactSeen.get(exactKey);
+      if (existing) {
+        existing.sourceIds = [...new Set([...(existing.sourceIds ?? [existing.id]), trade.id])];
+        continue;
+      }
+      tradeForGrouping = {
+        ...trade,
+        sourceIds: trade.sourceIds?.length ? [...trade.sourceIds] : [trade.id],
+      };
+      exactSeen.set(exactKey, tradeForGrouping);
+    }
+
+    const key = `${normalizeSymbol(tradeForGrouping.futures)}|${tradeForGrouping.direction}`;
+    const list = exnessByKey.get(key) ?? [];
+    list.push(tradeForGrouping);
+    exnessByKey.set(key, list);
+  }
+
+  const consolidated: Trade[] = [...untouched];
+
+  for (const groupTrades of exnessByKey.values()) {
+    const sorted = [...groupTrades].sort((a, b) => {
+      const timeA = parsePhtMs(a.openTime) ?? 0;
+      const timeB = parsePhtMs(b.openTime) ?? 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.createdAt || '').localeCompare(b.createdAt || '') || a.id.localeCompare(b.id);
+    });
+
+    let batch: Trade[] = [];
+    let batchStartMs: number | null = null;
+
+    const flush = () => {
+      if (batch.length > 0) consolidated.push(consolidateGroup(batch));
+      batch = [];
+      batchStartMs = null;
+    };
+
+    for (const trade of sorted) {
+      const openMs = parsePhtMs(trade.openTime)!;
+      if (batchStartMs === null || openMs - batchStartMs <= EXNESS_ENTRY_WINDOW_MS) {
+        if (batchStartMs === null) batchStartMs = openMs;
+        batch.push(trade);
+      } else {
+        flush();
+        batchStartMs = openMs;
+        batch.push(trade);
+      }
+    }
+    flush();
+  }
+
+  return consolidated.sort((a, b) => b.closeTime.localeCompare(a.closeTime));
+}
 
 const CHUNK_SIZE = 500;
 const PAGE_SIZE = 1000;
@@ -132,7 +335,45 @@ async function fetchAllTrades(): Promise<Trade[]> {
     if (data.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
   }
-  return all;
+  return consolidateTrades(all);
+}
+
+function toDbRow(userId: string, t: TradeInput): Record<string, unknown> {
+  return {
+    user_id: userId,
+    futures: t.futures,
+    open_time: t.openTime,
+    close_time: t.closeTime,
+    margin_mode: t.marginMode,
+    avg_entry_price: t.avgEntryPrice,
+    avg_close_price: t.avgClosePrice,
+    direction: t.direction,
+    closing_qty: t.closingQty,
+    trading_fee: t.tradingFee,
+    realized_pnl: t.realizedPnl,
+    status: t.status,
+    source: t.source ?? 'manual',
+    reference_order_id: t.referenceOrderId ?? null,
+  };
+}
+
+function withoutOptionalColumns(row: Record<string, unknown>, message: string): Record<string, unknown> {
+  const next = { ...row };
+  if (/reference_order_id/i.test(message)) delete next.reference_order_id;
+  if (/\bsource\b/i.test(message)) delete next.source;
+  return next;
+}
+
+async function insertRowsWithLegacyFallback(rows: Record<string, unknown>[]) {
+  let result = await supabase.from('trades').insert(rows);
+  if (!result.error) return result;
+
+  const reduced = rows.map((row) => withoutOptionalColumns(row, result.error!.message));
+  const changed = reduced.some((row, i) => Object.keys(row).length !== Object.keys(rows[i]!).length);
+  if (!changed) return result;
+
+  result = await supabase.from('trades').insert(reduced);
+  return result;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -141,15 +382,15 @@ interface TradeStore {
   trades: Trade[];
   loading: boolean;
   fetchTrades: () => Promise<void>;
-  addTrade: (trade: Omit<Trade, 'id' | 'userId' | 'createdAt'>) => Promise<void>;
+  addTrade: (trade: TradeInput) => Promise<void>;
   addTrades: (
-    trades: Omit<Trade, 'id' | 'userId' | 'createdAt'>[],
+    trades: TradeInput[],
     onProgress?: (done: number, total: number) => void
   ) => Promise<void>;
   deleteTrade: (id: string) => Promise<void>;
 }
 
-export const useTradeStore = create<TradeStore>((set) => ({
+export const useTradeStore = create<TradeStore>((set, get) => ({
   trades: [],
   loading: false,
 
@@ -164,26 +405,23 @@ export const useTradeStore = create<TradeStore>((set) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase
-      .from('trades')
-      .insert({
-        user_id: user.id,
-        futures: trade.futures,
-        open_time: trade.openTime,
-        close_time: trade.closeTime,
-        margin_mode: trade.marginMode,
-        avg_entry_price: trade.avgEntryPrice,
-        avg_close_price: trade.avgClosePrice,
-        direction: trade.direction,
-        closing_qty: trade.closingQty,
-        trading_fee: trade.tradingFee,
-        realized_pnl: trade.realizedPnl,
-        status: trade.status,
-        source: trade.source ?? 'manual',
-      })
-      .select()
-      .single();
-    if (data) set((s) => ({ trades: [mapTrade(data), ...s.trades] }));
+
+    const row = toDbRow(user.id, trade);
+    let result = await supabase.from('trades').insert(row).select().single();
+
+    // Backward compatibility for an existing DB that has not run the new
+    // reference_order_id/source migration yet.
+    if (result.error) {
+      const reduced = withoutOptionalColumns(row, result.error.message);
+      if (Object.keys(reduced).length !== Object.keys(row).length) {
+        result = await supabase.from('trades').insert(reduced).select().single();
+      }
+    }
+
+    if (!result.error && result.data) {
+      const all = await fetchAllTrades();
+      set({ trades: all });
+    }
   },
 
   addTrades: async (trades, onProgress) => {
@@ -191,25 +429,12 @@ export const useTradeStore = create<TradeStore>((set) => ({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
-    const toRow = (t: Omit<Trade, 'id' | 'userId' | 'createdAt'>) => ({
-      user_id: user.id,
-      futures: t.futures,
-      open_time: t.openTime,
-      close_time: t.closeTime,
-      margin_mode: t.marginMode,
-      avg_entry_price: t.avgEntryPrice,
-      avg_close_price: t.avgClosePrice,
-      direction: t.direction,
-      closing_qty: t.closingQty,
-      trading_fee: t.tradingFee,
-      realized_pnl: t.realizedPnl,
-      status: t.status,
-      source: t.source ?? 'manual',
-    });
+
     let inserted = 0;
     for (let i = 0; i < trades.length; i += CHUNK_SIZE) {
       const chunk = trades.slice(i, i + CHUNK_SIZE);
-      await supabase.from('trades').insert(chunk.map(toRow));
+      const result = await insertRowsWithLegacyFallback(chunk.map((t) => toDbRow(user.id, t)));
+      if (result.error) throw result.error;
       inserted += chunk.length;
       onProgress?.(inserted, trades.length);
     }
@@ -218,7 +443,12 @@ export const useTradeStore = create<TradeStore>((set) => ({
   },
 
   deleteTrade: async (id) => {
-    await supabase.from('trades').delete().eq('id', id);
-    set((s) => ({ trades: s.trades.filter((t) => t.id !== id) }));
+    const logicalTrade = get().trades.find((t: Trade) => t.id === id);
+    const ids = logicalTrade?.sourceIds?.length ? logicalTrade.sourceIds : [id];
+
+    if (ids.length === 1) await supabase.from('trades').delete().eq('id', ids[0]!);
+    else await supabase.from('trades').delete().in('id', ids);
+
+    set((s: TradeStore) => ({ trades: s.trades.filter((t: Trade) => t.id !== id) }));
   },
 }));

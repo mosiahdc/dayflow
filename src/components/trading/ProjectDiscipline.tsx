@@ -766,7 +766,14 @@ export default function ProjectDiscipline({ trades }: Props) {
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
+                        {(trade.orderCount ?? 1) > 1 && (
+                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent shrink-0">
+                            {trade.orderCount} orders
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-brand-muted">
                         {trade.closeTime ? trade.closeTime.slice(0, 16).replace(' ', ' ') : '—'}
                       </p>

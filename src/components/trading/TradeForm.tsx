@@ -41,6 +41,7 @@ export default function TradeForm({ onClose }: Props) {
         tradingFee: parseFloat(tradingFee) || 0,
         realizedPnl: parseFloat(realizedPnl) || 0,
         status,
+        source: 'manual',
       });
       onClose();
     } catch {
