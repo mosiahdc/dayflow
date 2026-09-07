@@ -4,7 +4,7 @@ import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 
-const PROJECT_START = '2026-07-10 00:00:00';
+const PROJECT_START = '2026-08-01 00:00:00';
 
 // UTC+8 helpers
 function nowUTC8(): Date {
@@ -300,7 +300,7 @@ export default function ProjectDiscipline({ trades }: Props) {
     fetchNotes();
   }, [fetchSettings, fetchNotes]);
 
-  // ── Project trades (from Jul 10 2026 00:00 PHT onwards) ───────────────────
+  // ── Project trades (from Aug 1 2026 00:00 PHT onwards) ───────────────────
   const projectTrades = useMemo(() => trades.filter((t) => t.closeTime >= PROJECT_START), [trades]);
 
   // ── Daily summary — ALL days including today, update immediately ───────────
@@ -631,7 +631,7 @@ export default function ProjectDiscipline({ trades }: Props) {
                 onKeyDown={(e) => e.key === 'Enter' && handleTxSave()}
                 placeholder={
                   txModal === 'funding_fee'
-                    ? 'e.g. Jul 10 funding'
+                    ? 'e.g. Aug 1 funding'
                     : txModal === 'deposit'
                       ? 'e.g. Weekly top-up'
                       : 'e.g. Profit taking'

@@ -1,16 +1,82 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
-import { useTradeStore, parseMexcRow } from '@/store/tradeStore';
+import { useTradeStore, parseExnessRow } from '@/store/tradeStore';
 import TradeForm from './TradeForm';
 import type { Trade } from '@/store/tradeStore';
 
-// Dynamically import xlsx — avoids bundle cost if user never uploads
-async function parseXlsx(file: File): Promise<Record<string, unknown>[]> {
-  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs' as string);
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-  const ws = wb.Sheets[wb.SheetNames[0]!]!;
-  return XLSX.utils.sheet_to_json(ws);
+// Exness exports trade history as CSV. Parse it locally so the importer works
+// without the old SheetJS/XLS dependency and also handles quoted values.
+function detectDelimiter(headerLine: string): ',' | ';' | '\t' {
+  const candidates: Array<',' | ';' | '\t'> = [',', ';', '\t'];
+  let best: ',' | ';' | '\t' = ',';
+  let bestCount = -1;
+  for (const delimiter of candidates) {
+    const count = [...headerLine].filter((ch) => ch === delimiter).length;
+    if (count > bestCount) {
+      best = delimiter;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function parseDelimited(text: string, delimiter: ',' | ';' | '\t'): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]!;
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          quoted = false;
+        }
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      quoted = true;
+    } else if (ch === delimiter) {
+      row.push(field.trim());
+      field = '';
+    } else if (ch === '\n') {
+      row.push(field.trim());
+      if (row.some((value) => value !== '')) rows.push(row);
+      row = [];
+      field = '';
+    } else if (ch !== '\r') {
+      field += ch;
+    }
+  }
+
+  row.push(field.trim());
+  if (row.some((value) => value !== '')) rows.push(row);
+  return rows;
+}
+
+async function parseExnessCsv(file: File): Promise<Record<string, unknown>[]> {
+  const text = (await file.text()).replace(/^\uFEFF/, '');
+  const firstNonEmpty = text.split(/\r?\n/).find((line) => line.trim()) ?? '';
+  const delimiter = detectDelimiter(firstNonEmpty);
+  const matrix = parseDelimited(text, delimiter);
+  if (matrix.length < 2) return [];
+
+  const headers = matrix[0]!.map((header) => header.replace(/^\uFEFF/, '').trim());
+  return matrix.slice(1).map((values) => {
+    const row: Record<string, unknown> = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] ?? '';
+    });
+    return row;
+  });
 }
 
 function PnlBadge({ pnl }: { pnl: number }) {
@@ -68,28 +134,29 @@ export default function TradeList({ trades }: Props) {
     setUploading(true);
     setUploadMsg('');
     try {
-      let rows: Record<string, unknown>[];
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        rows = await parseXlsx(file);
-      } else {
-        setUploadMsg('❌ Only .xlsx / .xls files supported');
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setUploadMsg('❌ Only Exness .csv files are supported');
         return;
       }
-      const parsed = rows.map(parseMexcRow).filter(Boolean) as ReturnType<typeof parseMexcRow>[];
+
+      const rows = await parseExnessCsv(file);
+      const parsed = rows.map(parseExnessRow).filter(Boolean) as ReturnType<typeof parseExnessRow>[];
       const valid = parsed.filter((r) => r !== null) as Exclude<
-        ReturnType<typeof parseMexcRow>,
+        ReturnType<typeof parseExnessRow>,
         null
       >[];
       if (valid.length === 0) {
-        setUploadMsg('❌ No valid trades found. Check the file format.');
+        setUploadMsg('❌ No valid Exness trades found. Check that this is an Exness trade-history CSV.');
         return;
       }
-      setUploadMsg(`⏳ Uploading ${valid.length} trades…`);
+      setUploadMsg(`⏳ Importing ${valid.length} Exness order${valid.length > 1 ? 's' : ''}…`);
       await addTrades(valid, (done, total) => {
-        setUploadMsg(`⏳ Uploading… ${done}/${total}`);
+        setUploadMsg(`⏳ Importing… ${done}/${total}`);
       });
       await fetchTrades();
-      setUploadMsg(`✅ Imported ${valid.length} trade${valid.length > 1 ? 's' : ''}`);
+      setUploadMsg(
+        `✅ Imported ${valid.length} Exness order${valid.length > 1 ? 's' : ''}. Same-entry orders are consolidated automatically.`
+      );
     } catch (err) {
       console.error(err);
       setUploadMsg('❌ Failed to parse file');
@@ -114,11 +181,11 @@ export default function TradeList({ trades }: Props) {
         <div className="flex gap-2 shrink-0">
           {/* Upload button */}
           <label className="cursor-pointer text-xs bg-brand-accent2 text-white px-3 py-1.5 rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center gap-1">
-            {uploading ? '⏳ Uploading…' : '⬆ Upload MEXC File'}
+            {uploading ? '⏳ Importing…' : '⬆ Upload Exness CSV'}
             <input
               ref={fileRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".csv,text/csv"
               className="hidden"
               onChange={handleFileUpload}
               disabled={uploading}
@@ -161,7 +228,7 @@ export default function TradeList({ trades }: Props) {
             <p className="text-2xl mb-2">📊</p>
             <p className="text-sm text-brand-muted">No trades yet.</p>
             <p className="text-xs text-brand-muted mt-1">
-              Upload a MEXC file or add trades manually.
+              Upload an Exness CSV or add trades manually.
             </p>
           </div>
         ) : (

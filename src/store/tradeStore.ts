@@ -55,6 +55,66 @@ const parseText = (...values: unknown[]): string | undefined => {
   return undefined;
 };
 
+
+const normalizeHeader = (value: string): string =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+function getRowValue(row: Record<string, unknown>, ...names: string[]): unknown {
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(row, name)) return row[name];
+  }
+  const wanted = new Set(names.map(normalizeHeader));
+  for (const [key, value] of Object.entries(row)) {
+    if (wanted.has(normalizeHeader(key))) return value;
+  }
+  return undefined;
+}
+
+function exnessUtcToPHT(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  // ISO timestamps that already carry UTC/offset information.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)) {
+    return utcToPHT(raw);
+  }
+
+  // yyyy-mm-dd hh:mm:ss, treated as UTC because Exness export times are UTC.
+  let match = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(raw);
+  if (match) {
+    const [, y, mo, d, h, mi, sec = '0'] = match;
+    const utc = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(sec));
+    const pht = new Date(utc + 8 * 60 * 60 * 1000);
+    return pht.toISOString().replace('T', ' ').slice(0, 19);
+  }
+
+  // dd-mm-yyyy / dd.mm.yyyy hh:mm:ss.
+  match = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(raw);
+  if (match) {
+    const [, d, mo, y, h, mi, sec = '0'] = match;
+    const utc = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(sec));
+    const pht = new Date(utc + 8 * 60 * 60 * 1000);
+    return pht.toISOString().replace('T', ' ').slice(0, 19);
+  }
+
+  // dd MMM yyyy hh:mm:ss (e.g. 04 Sep 2026 15:30:59).
+  match = /^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})[, ]+\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(raw);
+  if (match) {
+    const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+    const [, d, mon, y, h, mi, sec = '0'] = match;
+    const mo = months.indexOf(mon!.slice(0, 3).toLowerCase());
+    if (mo >= 0) {
+      const utc = Date.UTC(Number(y), mo, Number(d), Number(h), Number(mi), Number(sec));
+      const pht = new Date(utc + 8 * 60 * 60 * 1000);
+      return pht.toISOString().replace('T', ' ').slice(0, 19);
+    }
+  }
+
+  // Final fallback for other browser-parseable UTC values.
+  const parsed = new Date(raw.endsWith('Z') ? raw : `${raw} UTC`);
+  return Number.isNaN(parsed.getTime()) ? '' : utcToPHT(parsed.toISOString());
+}
+
 // Convert UTC ISO timestamp → PHT (UTC+8) string 'yyyy-MM-dd HH:mm:ss'
 function utcToPHT(iso: string): string {
   if (!iso) return '';
@@ -63,34 +123,92 @@ function utcToPHT(iso: string): string {
   return pht.toISOString().replace('T', ' ').slice(0, 19);
 }
 
-// Parse Exness CSV row
+// Parse Exness CSV row. Header matching is intentionally flexible because
+// Exness exports can use either machine-style names or human-readable labels.
 export function parseExnessRow(row: Record<string, unknown>): TradeInput | null {
   try {
-    const symbol = String(row['symbol'] ?? '').trim();
+    const symbol = String(
+      getRowValue(row, 'symbol', 'instrument', 'asset', 'market', 'pair') ?? ''
+    ).trim();
     if (!symbol) return null;
-    const type = String(row['type'] ?? '').toLowerCase();
-    const commission = parseNum(row['commission']);
-    const swap = parseNum(row['swap']);
+
+    const type = String(
+      getRowValue(row, 'type', 'side', 'direction', 'order type', 'position type') ?? ''
+    ).toLowerCase();
+    const direction: 'Long' | 'Short' =
+      type.includes('sell') || type.includes('short') ? 'Short' : 'Long';
+
+    const openTime = exnessUtcToPHT(
+      getRowValue(
+        row,
+        'opening_time_utc',
+        'open_time_utc',
+        'opening time utc',
+        'open time utc',
+        'opening time',
+        'open time'
+      )
+    );
+    const closeTime = exnessUtcToPHT(
+      getRowValue(
+        row,
+        'closing_time_utc',
+        'close_time_utc',
+        'closing time utc',
+        'close time utc',
+        'closing time',
+        'close time'
+      )
+    );
+    if (!openTime || !closeTime) return null;
+
+    const commission = parseNum(getRowValue(row, 'commission', 'commission usd'));
+    const swap = parseNum(getRowValue(row, 'swap', 'swap usd'));
+
     return {
       futures: symbol,
-      openTime: utcToPHT(String(row['opening_time_utc'] ?? '')),
-      closeTime: utcToPHT(String(row['closing_time_utc'] ?? '')),
-      direction: type === 'sell' ? 'Short' : 'Long',
-      avgEntryPrice: parseNum(row['opening_price']),
-      avgClosePrice: parseNum(row['closing_price']),
-      closingQty: parseNum(row['lots'] ?? row['original_position_size']),
-      tradingFee: commission + swap, // combine commission + swap as fee
-      realizedPnl: parseNum(row['profit']),
+      openTime,
+      closeTime,
+      direction,
+      avgEntryPrice: parseNum(
+        getRowValue(row, 'opening_price', 'open_price', 'opening price', 'open price', 'entry price')
+      ),
+      avgClosePrice: parseNum(
+        getRowValue(row, 'closing_price', 'close_price', 'closing price', 'close price', 'exit price')
+      ),
+      closingQty: parseNum(
+        getRowValue(
+          row,
+          'lots',
+          'lot',
+          'volume',
+          'volume in lots',
+          'original_position_size',
+          'original position size',
+          'position size',
+          'size'
+        )
+      ),
+      tradingFee: commission + swap,
+      realizedPnl: parseNum(
+        getRowValue(row, 'profit', 'profit usd', 'pnl', 'p/l', 'realized pnl', 'realized profit')
+      ),
       marginMode: 'Exness',
-      status: String(row['close_reason'] ?? 'closed'),
+      status: String(
+        getRowValue(row, 'close_reason', 'close reason', 'closed by', 'status') ?? 'closed'
+      ),
       source: 'exness',
       referenceOrderId: parseText(
-        row['position_id'],
-        row['positionId'],
-        row['Position ID'],
-        row['order_id'],
-        row['orderId'],
-        row['Order ID']
+        getRowValue(
+          row,
+          'position_id',
+          'position id',
+          'position',
+          'order_id',
+          'order id',
+          'ticket',
+          'deal id'
+        )
       ),
     };
   } catch {
