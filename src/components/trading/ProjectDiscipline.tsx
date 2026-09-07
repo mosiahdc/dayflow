@@ -768,7 +768,7 @@ export default function ProjectDiscipline({ trades }: Props) {
                     <div className="min-w-0">
                       <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
                       <p className="text-[10px] text-brand-muted">
-                        {trade.closeTime ? format(new Date(trade.closeTime), 'MMM d, HH:mm') : '—'}
+                        {trade.closeTime ? trade.closeTime.slice(0, 16).replace(' ', ' ') : '—'}
                       </p>
                     </div>
                     <div className="flex justify-center">
