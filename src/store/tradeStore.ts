@@ -537,6 +537,11 @@ async function insertRowsWithLegacyFallback(rows: Record<string, unknown>[]) {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
+export interface TradeBatchImportSummary {
+  inserted: number;
+  skippedDuplicates: number;
+}
+
 interface TradeStore {
   trades: Trade[];
   loading: boolean;
@@ -545,7 +550,7 @@ interface TradeStore {
   addTrades: (
     trades: TradeInput[],
     onProgress?: (done: number, total: number) => void
-  ) => Promise<void>;
+  ) => Promise<TradeBatchImportSummary>;
   deleteTrade: (id: string) => Promise<void>;
   deleteTrades: (ids: string[]) => Promise<void>;
   deleteAllTrades: () => Promise<void>;
@@ -589,18 +594,68 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return { inserted: 0, skippedDuplicates: 0 };
+
+    // Exness CSV exports are often overlapping. Do not create duplicate raw rows
+    // when the same file/history is uploaded again. The stable key mirrors the
+    // exact-order duplicate rule used by consolidateTrades().
+    const keyFor = (trade: {
+      referenceOrderId?: string | undefined;
+      openTime: string;
+      closeTime: string;
+      closingQty: number;
+      realizedPnl: number;
+    }): string | null =>
+      trade.referenceOrderId
+        ? [
+            trade.referenceOrderId,
+            trade.openTime,
+            trade.closeTime,
+            trade.closingQty,
+            trade.realizedPnl,
+          ].join('|')
+        : null;
+
+    const currentTrades = get().trades.length > 0 ? get().trades : await fetchAllTrades();
+    const existingKeys = new Set<string>();
+    for (const trade of currentTrades) {
+      if (trade.orders?.length) {
+        for (const order of trade.orders) {
+          const key = keyFor(order);
+          if (key) existingKeys.add(key);
+        }
+      } else {
+        const key = keyFor(trade);
+        if (key) existingKeys.add(key);
+      }
+    }
+
+    const batchKeys = new Set<string>();
+    let skippedDuplicates = 0;
+    const freshTrades = trades.filter((trade) => {
+      if (trade.source !== 'exness') return true;
+      const key = keyFor(trade);
+      if (!key) return true;
+      if (existingKeys.has(key) || batchKeys.has(key)) {
+        skippedDuplicates += 1;
+        return false;
+      }
+      batchKeys.add(key);
+      return true;
+    });
 
     let inserted = 0;
-    for (let i = 0; i < trades.length; i += CHUNK_SIZE) {
-      const chunk = trades.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < freshTrades.length; i += CHUNK_SIZE) {
+      const chunk = freshTrades.slice(i, i + CHUNK_SIZE);
       const result = await insertRowsWithLegacyFallback(chunk.map((t) => toDbRow(user.id, t)));
       if (result.error) throw result.error;
       inserted += chunk.length;
-      onProgress?.(inserted, trades.length);
+      onProgress?.(inserted, freshTrades.length);
     }
+
     const all = await fetchAllTrades();
     set({ trades: all });
+    return { inserted, skippedDuplicates };
   },
 
   deleteTrade: async (id) => {

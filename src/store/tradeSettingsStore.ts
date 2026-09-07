@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 
 export interface TradeTransaction {
   id: string;
-  type: 'deposit' | 'withdrawal' | 'funding_fee';
+  type: 'deposit' | 'withdrawal' | 'funding_fee' | 'null_compensation';
   amount: number;
   note: string;
   createdAt: string;
@@ -19,6 +19,14 @@ export interface ExnessTransactionImportSummary {
   warnings: string[];
 }
 
+export interface ExnessNullCompensationImportSummary {
+  detected: number;
+  imported: number;
+  skippedDuplicates: number;
+  importedTotal: number;
+  warnings: string[];
+}
+
 interface TradeSettingsStore {
   initialBalance: number;
   transactions: TradeTransaction[];
@@ -31,6 +39,8 @@ interface TradeSettingsStore {
     note: string
   ) => Promise<void>;
   importExnessTransactions: (rawJson: string) => Promise<ExnessTransactionImportSummary>;
+  importExnessNullCompensations: (rows: Record<string, unknown>[]) => Promise<ExnessNullCompensationImportSummary>;
+  deleteExnessNullCompensations: () => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
 }
 
@@ -72,6 +82,7 @@ interface PreparedExnessTransaction {
 }
 
 const EXNESS_MARKER_PREFIX = '[EXNESS_TX:';
+const EXNESS_NULL_MARKER_PREFIX = '[EXNESS_NULL:';
 const PHT_OFFSET_HOURS = 8;
 
 const MONTHS: Record<string, number> = {
@@ -101,13 +112,20 @@ const MONTHS: Record<string, number> = {
   december: 11,
 };
 
-const mapTx = (t: Record<string, unknown>): TradeTransaction => ({
-  id: t.id as string,
-  type: t.type as 'deposit' | 'withdrawal' | 'funding_fee',
-  amount: Number(t.amount),
-  note: (t.note as string) ?? '',
-  createdAt: t.created_at as string,
-});
+const mapTx = (t: Record<string, unknown>): TradeTransaction => {
+  const note = (t.note as string) ?? '';
+  // Keep the database representation backwards-compatible: D-NULL rows are
+  // stored as a positive deposit, then promoted to their own UI/accounting type
+  // from the durable EXNESS_NULL marker. No SQL schema change is required.
+  const persistedType = t.type as 'deposit' | 'withdrawal' | 'funding_fee';
+  return {
+    id: t.id as string,
+    type: note.includes(EXNESS_NULL_MARKER_PREFIX) ? 'null_compensation' : persistedType,
+    amount: Number(t.amount),
+    note,
+    createdAt: t.created_at as string,
+  };
+};
 
 function asString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
@@ -305,6 +323,141 @@ function prepareExnessTransactions(payload: ExnessPayload): {
   return { prepared, skippedInvalid, warnings };
 }
 
+function normalizeCsvHeader(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function getCsvRowValue(row: Record<string, unknown>, ...names: string[]): unknown {
+  const wanted = new Set(names.map(normalizeCsvHeader));
+  for (const [key, value] of Object.entries(row)) {
+    if (wanted.has(normalizeCsvHeader(key))) return value;
+  }
+  return undefined;
+}
+
+function parseCsvNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const parsed = Number(value.replace(/,/g, '').replace(/[^0-9.+-]/g, ''));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseExnessUtcMs(value: unknown): number | null {
+  const text = asString(value);
+  if (!text) return null;
+  // Exness machine CSV timestamps are UTC but often omit the trailing Z.
+  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text) ? text : `${text}Z`;
+  const ms = new Date(normalized).getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+interface NullCompCandidate {
+  closeMs: number;
+  equityCents: number;
+}
+
+interface PreparedNullCompensation {
+  amount: number;
+  createdAt: string;
+  dedupeKey: string;
+  note: string;
+}
+
+/**
+ * Detect Exness D-NULL / Null compensation from the trade-history CSV.
+ *
+ * The CSV does not contain D-NULL as a separate row, but Exness exposes the
+ * negative account equity on stop-out rows (`close_reason = so`). During one
+ * stop-out liquidation several positions can close within 1-2 seconds, and the
+ * final negative equity is repeated across most of those rows. Exness then
+ * posts D-NULL for exactly that negative amount to restore the account to 0.
+ *
+ * We therefore cluster stop-out rows within 2 seconds and use the modal negative
+ * equity (rounded to cents) for the event. This reproduces the explicit D-NULL
+ * entries in the official account statement without hard-coding any amount.
+ */
+function prepareExnessNullCompensations(rows: Record<string, unknown>[]): PreparedNullCompensation[] {
+  const candidates: NullCompCandidate[] = [];
+
+  for (const row of rows) {
+    const reason = String(
+      getCsvRowValue(row, 'close_reason', 'close reason', 'closed by', 'status') ?? ''
+    )
+      .trim()
+      .toLowerCase();
+    if (reason !== 'so' && !reason.includes('stop out') && !reason.includes('stopout')) continue;
+
+    const equity = parseCsvNumber(getCsvRowValue(row, 'equity'));
+    if (equity === null || equity >= 0) continue;
+
+    const closeMs = parseExnessUtcMs(
+      getCsvRowValue(
+        row,
+        'closing_time_utc',
+        'close_time_utc',
+        'closing time utc',
+        'close time utc',
+        'closing time',
+        'close time'
+      )
+    );
+    if (closeMs === null) continue;
+
+    candidates.push({ closeMs, equityCents: Math.round(equity * 100) });
+  }
+
+  candidates.sort((a, b) => a.closeMs - b.closeMs);
+  if (candidates.length === 0) return [];
+
+  const clusters: NullCompCandidate[][] = [];
+  let current: NullCompCandidate[] = [];
+  let previousMs: number | null = null;
+
+  for (const candidate of candidates) {
+    if (previousMs === null || candidate.closeMs - previousMs <= 2_000) {
+      current.push(candidate);
+    } else {
+      if (current.length > 0) clusters.push(current);
+      current = [candidate];
+    }
+    previousMs = candidate.closeMs;
+  }
+  if (current.length > 0) clusters.push(current);
+
+  return clusters.map((cluster) => {
+    const counts = new Map<number, number>();
+    for (const candidate of cluster) {
+      counts.set(candidate.equityCents, (counts.get(candidate.equityCents) ?? 0) + 1);
+    }
+
+    let selectedCents = cluster[0]!.equityCents;
+    let selectedCount = 0;
+    for (const [equityCents, count] of counts) {
+      // Highest frequency wins. If frequencies tie, prefer the more-negative
+      // equity because D-NULL compensates the final deficit, not an interim one.
+      if (count > selectedCount || (count === selectedCount && equityCents < selectedCents)) {
+        selectedCents = equityCents;
+        selectedCount = count;
+      }
+    }
+
+    const eventMs = Math.max(...cluster.map((candidate) => candidate.closeMs));
+    const amount = Math.abs(selectedCents) / 100;
+    const eventIso = new Date(eventMs).toISOString();
+    const dedupeKey = `${eventIso}|${amount.toFixed(2)}`;
+    return {
+      amount,
+      createdAt: eventIso,
+      dedupeKey,
+      note: `Exness · Null compensation · D-NULL · Stop-out balance reset · ${EXNESS_NULL_MARKER_PREFIX}${dedupeKey}]`,
+    };
+  });
+}
+
 export const useTradeSettingsStore = create<TradeSettingsStore>((set, get) => ({
   initialBalance: 0,
   transactions: [],
@@ -473,6 +626,107 @@ export const useTradeSettingsStore = create<TradeSettingsStore>((set, get) => ({
     }
 
     return summary;
+  },
+
+  importExnessNullCompensations: async (rows) => {
+    const prepared = prepareExnessNullCompensations(rows);
+    const summary: ExnessNullCompensationImportSummary = {
+      detected: prepared.length,
+      imported: 0,
+      skippedDuplicates: 0,
+      importedTotal: 0,
+      warnings: [],
+    };
+    if (prepared.length === 0) return summary;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) throw new Error('You need to be signed in before importing Exness D-NULL compensation.');
+
+    const existingKeys = new Set<string>();
+    const collectKey = (note: string) => {
+      const markerMatch = note.match(/\[EXNESS_NULL:([^\]]+)\]/);
+      if (markerMatch?.[1]) existingKeys.add(markerMatch[1]);
+    };
+    for (const tx of get().transactions) collectKey(tx.note);
+
+    const { data: persistedRows, error: existingError } = await supabase
+      .from('trade_transactions')
+      .select('note')
+      .eq('user_id', user.id);
+    if (existingError) {
+      throw new Error(`Could not check existing D-NULL entries: ${existingError.message}`);
+    }
+    for (const row of persistedRows ?? []) {
+      if (typeof row.note === 'string') collectKey(row.note);
+    }
+
+    const batchKeys = new Set<string>();
+    const fresh = prepared.filter((item) => {
+      if (existingKeys.has(item.dedupeKey) || batchKeys.has(item.dedupeKey)) {
+        summary.skippedDuplicates += 1;
+        return false;
+      }
+      batchKeys.add(item.dedupeKey);
+      return true;
+    });
+
+    if (fresh.length === 0) return summary;
+
+    // Persist as a positive deposit for maximum compatibility with existing
+    // Supabase schemas. mapTx() promotes marked rows to null_compensation.
+    const insertRows = fresh.map((item) => ({
+      user_id: user.id,
+      type: 'deposit',
+      amount: item.amount,
+      note: item.note,
+      created_at: item.createdAt,
+    }));
+
+    const { data, error } = await supabase.from('trade_transactions').insert(insertRows).select('*');
+    if (error) throw new Error(`Could not save Exness D-NULL compensation: ${error.message}`);
+
+    const imported = (data ?? []).map(mapTx);
+    summary.imported = imported.length;
+    summary.importedTotal = imported.reduce((sum, tx) => sum + tx.amount, 0);
+
+    if (imported.length > 0) {
+      set((state) => ({
+        transactions: [...imported, ...state.transactions].sort((a, b) =>
+          b.createdAt.localeCompare(a.createdAt)
+        ),
+      }));
+    }
+
+    return summary;
+  },
+
+  deleteExnessNullCompensations: async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('trade_transactions')
+      .select('id,note')
+      .eq('user_id', user.id);
+    if (error) throw new Error(`Could not inspect D-NULL compensation rows: ${error.message}`);
+
+    const ids = (data ?? [])
+      .filter((row) => typeof row.note === 'string' && row.note.includes(EXNESS_NULL_MARKER_PREFIX))
+      .map((row) => row.id as string);
+    if (ids.length === 0) return;
+
+    const { error: deleteError } = await supabase
+      .from('trade_transactions')
+      .delete()
+      .in('id', ids);
+    if (deleteError) throw new Error(`Could not reset D-NULL compensation rows: ${deleteError.message}`);
+
+    const idSet = new Set(ids);
+    set((state) => ({ transactions: state.transactions.filter((tx) => !idSet.has(tx.id)) }));
   },
 
   deleteTransaction: async (id) => {

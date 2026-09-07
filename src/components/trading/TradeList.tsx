@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { useTradeStore, parseExnessRow } from '@/store/tradeStore';
+import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import TradeForm from './TradeForm';
 import TradeOrdersDropdown from './TradeOrdersDropdown';
 import type { Trade } from '@/store/tradeStore';
@@ -122,6 +123,7 @@ interface Props {
 
 export default function TradeList({ trades }: Props) {
   const { deleteTrade, deleteTrades, deleteAllTrades, addTrades, fetchTrades } = useTradeStore();
+  const { importExnessNullCompensations, deleteExnessNullCompensations } = useTradeSettingsStore();
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
@@ -156,12 +158,31 @@ export default function TradeList({ trades }: Props) {
         return;
       }
       setUploadMsg(`⏳ Importing ${valid.length} Exness order${valid.length > 1 ? 's' : ''}…`);
-      await addTrades(valid, (done, total) => {
+      const tradeSummary = await addTrades(valid, (done, total) => {
         setUploadMsg(`⏳ Importing… ${done}/${total}`);
       });
+
+      // The Exness CSV also contains the evidence needed to reconstruct D-NULL
+      // (Null compensation): stop-out rows expose the negative account equity
+      // that Exness then resets to zero. Import those adjustments alongside the
+      // trade rows so DayFlow balance reconciles to the official statement.
+      const nullSummary = await importExnessNullCompensations(rows);
+
       await fetchTrades();
+      const nullText =
+        nullSummary.detected > 0
+          ? ` · Null compensation ${nullSummary.imported > 0 ? `+${nullSummary.importedTotal.toFixed(2)} (${nullSummary.imported} new)` : `already synced (${nullSummary.skippedDuplicates})`}`
+          : '';
+      const tradeText =
+        tradeSummary.inserted > 0
+          ? `Imported ${tradeSummary.inserted} new Exness order${tradeSummary.inserted === 1 ? '' : 's'}`
+          : 'No new Exness orders';
+      const duplicateText =
+        tradeSummary.skippedDuplicates > 0
+          ? ` · ${tradeSummary.skippedDuplicates} duplicate order${tradeSummary.skippedDuplicates === 1 ? '' : 's'} skipped`
+          : '';
       setUploadMsg(
-        `✅ Imported ${valid.length} Exness order${valid.length > 1 ? 's' : ''}. Orders in the same opening-time batch are consolidated automatically.`
+        `✅ ${tradeText}${duplicateText}${nullText}. Orders in the same opening-time batch are consolidated automatically.`
       );
     } catch (err) {
       console.error(err);
@@ -222,7 +243,10 @@ export default function TradeList({ trades }: Props) {
     setUploadMsg('');
     try {
       await deleteAllTrades();
-      setUploadMsg('✅ Trade history reset. All imported and manual trades were deleted. Deposits and withdrawals were kept.');
+      // D-NULL comes from the Exness trade-history CSV, so reset it together
+      // with the trade history. Deposit/Withdrawal JSON history is retained.
+      await deleteExnessNullCompensations();
+      setUploadMsg('✅ Trade history reset. Trades and CSV-derived Null compensation were deleted. Deposits and withdrawals were kept.');
       exitBulkMode();
     } catch (err) {
       console.error(err);
@@ -312,8 +336,8 @@ export default function TradeList({ trades }: Props) {
           <p className="text-sm font-bold text-red-700 dark:text-red-300">Reset all trades?</p>
           <p className="text-xs text-red-600/90 dark:text-red-300/80 mt-1">
             This permanently deletes every imported and manually-added trade for your account,
-            including all underlying Exness orders. Exness deposit/withdrawal cash-flow records and
-            your Initial Balance are not deleted.
+            including all underlying Exness orders and CSV-derived D-NULL / Null compensation.
+            Exness deposit/withdrawal cash-flow records and your Initial Balance are not deleted.
           </p>
           <div className="flex gap-2 mt-3">
             <button

@@ -59,7 +59,7 @@ const MARGIN_DIVISORS: Record<MarginMode, number> = {
   Volatile: 1,
 };
 
-type TxType = 'deposit' | 'withdrawal' | 'funding_fee';
+type TxType = 'deposit' | 'withdrawal' | 'funding_fee' | 'null_compensation';
 const TX_CONFIG: Record<TxType, { label: string; colorClass: string; badgeClass: string }> = {
   deposit: {
     label: 'Deposit',
@@ -75,6 +75,11 @@ const TX_CONFIG: Record<TxType, { label: string; colorClass: string; badgeClass:
     label: 'Funding Fee',
     colorClass: 'text-amber-600 dark:text-amber-400',
     badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  },
+  null_compensation: {
+    label: 'Null compensation',
+    colorClass: 'text-cyan-600 dark:text-cyan-400',
+    badgeClass: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
   },
 };
 
@@ -368,7 +373,11 @@ export default function ProjectDiscipline({ trades }: Props) {
     () => projectTransactions.filter((t) => t.type === 'funding_fee').reduce((sum, t) => sum + t.amount, 0),
     [projectTransactions]
   );
-  const txNet = depositsTotal + withdrawalsTotal + fundingFeesTotal;
+  const nullCompensationTotal = useMemo(
+    () => projectTransactions.filter((t) => t.type === 'null_compensation').reduce((sum, t) => sum + t.amount, 0),
+    [projectTransactions]
+  );
+  const txNet = depositsTotal + withdrawalsTotal + fundingFeesTotal + nullCompensationTotal;
 
   // ── Live balance = opening balance + project cash flow + closed project PNL ─
   const projectPnl = useMemo(() => dailySummary.reduce((sum, d) => sum + d.pnl, 0), [dailySummary]);
@@ -456,6 +465,12 @@ export default function ProjectDiscipline({ trades }: Props) {
               <span className="text-right font-medium text-green-600 dark:text-green-400">+{depositsTotal.toFixed(2)}</span>
               <span>Withdrawals</span>
               <span className="text-right font-medium text-red-500 dark:text-red-400">{withdrawalsTotal.toFixed(2)}</span>
+              {nullCompensationTotal !== 0 && (
+                <>
+                  <span>Null compensation</span>
+                  <span className="text-right font-medium text-cyan-600 dark:text-cyan-400">+{nullCompensationTotal.toFixed(2)}</span>
+                </>
+              )}
               {fundingFeesTotal !== 0 && (
                 <>
                   <span>Fees</span>
@@ -473,7 +488,7 @@ export default function ProjectDiscipline({ trades }: Props) {
             </div>
           </div>
           <p className="text-[9px] text-brand-muted mt-1">
-            Uses Initial Balance from Settings + Exness deposits/withdrawals from Aug 1 + closed project PNL. Transfers are ignored.
+            Uses Initial Balance + Exness deposits/withdrawals + CSV-derived D-NULL (Null compensation) + closed project PNL. Transfers are ignored.
           </p>
           <div className="flex gap-1 mt-1.5 flex-wrap">
             <button

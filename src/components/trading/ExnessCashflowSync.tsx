@@ -93,7 +93,7 @@ export default function ExnessCashflowSync({ onClose }: Props) {
           <div>
             <h3 className="text-base font-bold dark:text-white">Sync Exness cash flow</h3>
             <p className="mt-1 text-xs text-brand-muted">
-              Paste the JSON from Exness Transaction history. Deposit and Withdrawal entries with Done or Sent status are saved automatically.
+              Paste the JSON from Exness Transaction history. Deposit and Withdrawal entries with Done or Sent status are saved automatically. D-NULL / Null compensation is imported separately from the Exness trade CSV.
             </p>
           </div>
           <button
@@ -109,7 +109,7 @@ export default function ExnessCashflowSync({ onClose }: Props) {
           <div className="mb-3 rounded-xl border border-brand-accent/20 bg-brand-accent/5 px-3 py-2.5 text-[11px] text-brand-muted dark:bg-brand-accent/10">
             <p className="font-semibold text-brand-accent">Automatic rules</p>
             <p className="mt-1">
-              Only Deposit and Withdrawal are imported · Status must be Done or Sent · Transfer entries are ignored · Invoice ID is the unique key, so old transactions stay saved and overlapping history only adds new invoices.
+              Only Deposit and Withdrawal are imported here · Status must be Done or Sent · Transfer entries are ignored · Invoice ID is the unique key. D-NULL / Null compensation is detected automatically when you upload the Exness trade CSV.
             </p>
           </div>
 
