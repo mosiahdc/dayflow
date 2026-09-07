@@ -121,13 +121,17 @@ interface Props {
 }
 
 export default function TradeList({ trades }: Props) {
-  const { deleteTrade, addTrades, fetchTrades } = useTradeStore();
+  const { deleteTrade, deleteTrades, deleteAllTrades, addTrades, fetchTrades } = useTradeStore();
   const [showForm, setShowForm] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedTradeIds, setSelectedTradeIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,6 +173,65 @@ export default function TradeList({ trades }: Props) {
   };
 
   const filtered = trades.filter((t) => t.futures.toLowerCase().includes(search.toLowerCase()));
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((trade) => selectedTradeIds.has(trade.id));
+
+  const toggleTradeSelection = (id: string) => {
+    setSelectedTradeIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFiltered = () => {
+    setSelectedTradeIds((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) filtered.forEach((trade) => next.delete(trade.id));
+      else filtered.forEach((trade) => next.add(trade.id));
+      return next;
+    });
+  };
+
+  const exitBulkMode = () => {
+    setBulkMode(false);
+    setSelectedTradeIds(new Set());
+    setShowResetConfirm(false);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedTradeIds.size === 0 || bulkDeleting) return;
+    setBulkDeleting(true);
+    setUploadMsg('');
+    try {
+      await deleteTrades([...selectedTradeIds]);
+      setUploadMsg(`✅ Deleted ${selectedTradeIds.size} selected trade${selectedTradeIds.size === 1 ? '' : 's'} and all underlying Exness orders.`);
+      setSelectedTradeIds(new Set());
+    } catch (err) {
+      console.error(err);
+      setUploadMsg('❌ Bulk delete stopped because an error occurred. Refresh before trying again.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleResetAllTrades = async () => {
+    if (bulkDeleting) return;
+    setBulkDeleting(true);
+    setUploadMsg('');
+    try {
+      await deleteAllTrades();
+      setUploadMsg('✅ Trade history reset. All imported and manual trades were deleted. Deposits and withdrawals were kept.');
+      exitBulkMode();
+    } catch (err) {
+      console.error(err);
+      setUploadMsg('❌ Could not reset trade history.');
+    } finally {
+      setBulkDeleting(false);
+      setShowResetConfirm(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -193,6 +256,17 @@ export default function TradeList({ trades }: Props) {
               disabled={uploading}
             />
           </label>
+          {/* Bulk delete / reset */}
+          <button
+            onClick={() => (bulkMode ? exitBulkMode() : setBulkMode(true))}
+            className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${
+              bulkMode
+                ? 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-white'
+                : 'bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20'
+            }`}
+          >
+            {bulkMode ? '✕ Cancel Bulk' : '🗑 Bulk Delete'}
+          </button>
           {/* Manual add */}
           <button
             onClick={() => setShowForm(true)}
@@ -202,6 +276,65 @@ export default function TradeList({ trades }: Props) {
           </button>
         </div>
       </div>
+
+      {bulkMode && (
+        <div className="flex items-center justify-between gap-2 flex-wrap rounded-lg border border-red-500/25 bg-red-500/5 px-3 py-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={toggleSelectAllFiltered}
+              className="text-xs px-2.5 py-1 rounded border dark:border-gray-600 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              {allFilteredSelected ? '☑ Unselect filtered' : `☐ Select filtered (${filtered.length})`}
+            </button>
+            <button
+              type="button"
+              disabled={selectedTradeIds.size === 0 || bulkDeleting}
+              onClick={handleDeleteSelected}
+              className="text-xs px-2.5 py-1 rounded bg-red-500 text-white font-semibold disabled:opacity-40"
+            >
+              {bulkDeleting ? 'Deleting…' : `Delete selected (${selectedTradeIds.size})`}
+            </button>
+          </div>
+          <button
+            type="button"
+            disabled={bulkDeleting || trades.length === 0}
+            onClick={() => setShowResetConfirm(true)}
+            className="text-xs px-2.5 py-1 rounded bg-red-700 text-white font-bold disabled:opacity-40"
+          >
+            Reset ALL trade history
+          </button>
+        </div>
+      )}
+
+      {showResetConfirm && (
+        <div className="rounded-xl border border-red-500/40 bg-red-50 dark:bg-red-950/20 px-4 py-3">
+          <p className="text-sm font-bold text-red-700 dark:text-red-300">Reset all trades?</p>
+          <p className="text-xs text-red-600/90 dark:text-red-300/80 mt-1">
+            This permanently deletes every imported and manually-added trade for your account,
+            including all underlying Exness orders. Exness deposit/withdrawal cash-flow records and
+            your Initial Balance are not deleted.
+          </p>
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={handleResetAllTrades}
+              disabled={bulkDeleting}
+              className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-bold disabled:opacity-50"
+            >
+              {bulkDeleting ? 'Resetting…' : 'Yes, delete all trades'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(false)}
+              disabled={bulkDeleting}
+              className="text-xs px-3 py-1.5 rounded-lg border dark:border-gray-600 dark:text-white"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {uploadMsg && (
         <p className="text-xs text-center py-1.5 rounded-lg bg-gray-50 dark:bg-gray-700 dark:text-white">
@@ -214,8 +347,21 @@ export default function TradeList({ trades }: Props) {
         {/* Header */}
         <div
           className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700"
-          style={{ gridTemplateColumns: '1fr 80px 90px 90px 60px 80px 28px' }}
+          style={{
+            gridTemplateColumns: bulkMode
+              ? '32px 1fr 80px 90px 90px 60px 80px 28px'
+              : '1fr 80px 90px 90px 60px 80px 28px',
+          }}
         >
+          {bulkMode && (
+            <input
+              type="checkbox"
+              checked={allFilteredSelected}
+              onChange={toggleSelectAllFiltered}
+              aria-label="Select all filtered trades"
+              className="accent-red-500"
+            />
+          )}
           <span>Symbol / Time</span>
           <span className="text-center">Direction</span>
           <span className="text-right">Avg Entry / Avg Exit</span>
@@ -239,8 +385,21 @@ export default function TradeList({ trades }: Props) {
               <div key={trade.id}>
                 <div
                   className="px-3 py-2.5 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                  style={{ gridTemplateColumns: '1fr 80px 90px 90px 60px 80px 28px' }}
+                  style={{
+                    gridTemplateColumns: bulkMode
+                      ? '32px 1fr 80px 90px 90px 60px 80px 28px'
+                      : '1fr 80px 90px 90px 60px 80px 28px',
+                  }}
                 >
+                {bulkMode && (
+                  <input
+                    type="checkbox"
+                    checked={selectedTradeIds.has(trade.id)}
+                    onChange={() => toggleTradeSelection(trade.id)}
+                    aria-label={`Select ${trade.futures} trade`}
+                    className="accent-red-500"
+                  />
+                )}
                 {/* Symbol + time */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -291,7 +450,9 @@ export default function TradeList({ trades }: Props) {
 
                 {/* Delete */}
                 <div className="flex justify-end">
-                  {confirmDelete === trade.id ? (
+                  {bulkMode ? (
+                    <span className="text-[10px] text-brand-muted">—</span>
+                  ) : confirmDelete === trade.id ? (
                     <div className="flex gap-0.5">
                       <button
                         onClick={() => {

@@ -547,6 +547,8 @@ interface TradeStore {
     onProgress?: (done: number, total: number) => void
   ) => Promise<void>;
   deleteTrade: (id: string) => Promise<void>;
+  deleteTrades: (ids: string[]) => Promise<void>;
+  deleteAllTrades: () => Promise<void>;
 }
 
 export const useTradeStore = create<TradeStore>((set, get) => ({
@@ -609,5 +611,49 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
     else await supabase.from('trades').delete().in('id', ids);
 
     set((s: TradeStore) => ({ trades: s.trades.filter((t: Trade) => t.id !== id) }));
+  },
+
+  deleteTrades: async (logicalIds) => {
+    if (logicalIds.length === 0) return;
+
+    const logicalIdSet = new Set(logicalIds);
+    const sourceIds = [
+      ...new Set(
+        get().trades
+          .filter((trade: Trade) => logicalIdSet.has(trade.id))
+          .flatMap((trade: Trade) =>
+            trade.sourceIds?.length ? trade.sourceIds : [trade.id]
+          )
+      ),
+    ];
+
+    // Delete in chunks so large Exness batches do not exceed PostgREST URL limits.
+    for (let i = 0; i < sourceIds.length; i += CHUNK_SIZE) {
+      const chunk = sourceIds.slice(i, i + CHUNK_SIZE);
+      if (chunk.length === 1) {
+        const { error } = await supabase.from('trades').delete().eq('id', chunk[0]!);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('trades').delete().in('id', chunk);
+        if (error) throw error;
+      }
+    }
+
+    set((s: TradeStore) => ({
+      trades: s.trades.filter((trade: Trade) => !logicalIdSet.has(trade.id)),
+    }));
+  },
+
+  deleteAllTrades: async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // This is intentionally scoped to the signed-in user. It resets imported/manual
+    // trade history only; cash-flow deposits/withdrawals live in a separate store.
+    const { error } = await supabase.from('trades').delete().eq('user_id', user.id);
+    if (error) throw error;
+    set({ trades: [] });
   },
 }));
