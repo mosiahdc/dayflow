@@ -117,7 +117,7 @@ export default function LibraryPage() {
   });
 
   return (
-    <div className="max-w-screen-md mx-auto">
+    <div className="df-page">
       {/* Page header */}
       <div className="flex items-center justify-between mb-4">
         <div>

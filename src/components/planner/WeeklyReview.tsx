@@ -51,40 +51,40 @@ const blank = (weekStart: string): WeeklyReview => ({
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: '16px', maxWidth: 720, margin: '0 auto' },
+  page: { padding: '0', maxWidth: 940, margin: '0 auto' },
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     marginBottom: 20, flexWrap: 'wrap', gap: 10,
   },
-  title: { fontSize: 18, fontWeight: 700, color: '#e8e8f0' },
-  weekLabel: { fontSize: 13, color: '#888899', marginTop: 2 },
+  title: { fontSize: 18, fontWeight: 700, color: 'var(--df-text)' },
+  weekLabel: { fontSize: 13, color: 'var(--df-muted)', marginTop: 2 },
   navRow: { display: 'flex', gap: 8, alignItems: 'center' },
   navBtn: {
-    background: '#1e1e3a', border: '1px solid #2d2d4e',
-    borderRadius: 8, padding: '6px 12px', color: '#888899', cursor: 'pointer', fontSize: 13,
+    background: 'var(--df-surface2)', border: '1px solid #2d2d4e',
+    borderRadius: 8, padding: '6px 12px', color: 'var(--df-muted)', cursor: 'pointer', fontSize: 13,
   },
   card: {
-    background: '#1a1a2e', border: '1px solid #2d2d4e',
+    background: 'var(--df-surface)', border: '1px solid #2d2d4e',
     borderRadius: 12, padding: '16px', marginBottom: 14,
   },
-  cardTitle: { fontSize: 13, fontWeight: 700, color: '#888899', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 },
+  cardTitle: { fontSize: 13, fontWeight: 700, color: 'var(--df-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 },
   statRow: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 },
   stat: {
     flex: 1, minWidth: 100,
-    background: '#1e1e3a', border: '1px solid #2d2d4e',
+    background: 'var(--df-surface2)', border: '1px solid #2d2d4e',
     borderRadius: 10, padding: '12px 14px',
   },
-  statNum: { fontSize: 24, fontWeight: 700, color: '#4F6EF7' },
-  statLabel: { fontSize: 11, color: '#888899', marginTop: 2 },
-  label: { fontSize: 12, color: '#888899', fontWeight: 500, marginBottom: 6, display: 'block' },
+  statNum: { fontSize: 24, fontWeight: 700, color: 'var(--df-accent)' },
+  statLabel: { fontSize: 11, color: 'var(--df-muted)', marginTop: 2 },
+  label: { fontSize: 12, color: 'var(--df-muted)', fontWeight: 500, marginBottom: 6, display: 'block' },
   input: {
-    width: '100%', background: '#12121f', border: '1px solid #2d2d4e',
-    borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#e8e8f0', outline: 'none',
+    width: '100%', background: 'var(--df-bg-soft)', border: '1px solid #2d2d4e',
+    borderRadius: 8, padding: '9px 12px', fontSize: 13, color: 'var(--df-text)', outline: 'none',
     boxSizing: 'border-box',
   },
   textarea: {
-    width: '100%', background: '#12121f', border: '1px solid #2d2d4e',
-    borderRadius: 8, padding: '9px 12px', fontSize: 13, color: '#e8e8f0', outline: 'none',
+    width: '100%', background: 'var(--df-bg-soft)', border: '1px solid #2d2d4e',
+    borderRadius: 8, padding: '9px 12px', fontSize: 13, color: 'var(--df-text)', outline: 'none',
     resize: 'vertical', minHeight: 80, boxSizing: 'border-box',
   },
   priorityRow: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 },
@@ -94,7 +94,7 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: 11, fontWeight: 700, color: '#fff',
   },
   saveBtn: {
-    background: '#4F6EF7', color: '#fff', border: 'none',
+    background: 'var(--df-accent)', color: '#fff', border: 'none',
     borderRadius: 8, padding: '10px 24px', fontSize: 13, cursor: 'pointer', fontWeight: 600,
   },
   savedBadge: {
@@ -103,7 +103,7 @@ const s: Record<string, React.CSSProperties> = {
   },
   bookItem: {
     display: 'flex', gap: 10, alignItems: 'center',
-    padding: '8px 10px', background: '#1e1e3a', border: '1px solid #2d2d4e',
+    padding: '8px 10px', background: 'var(--df-surface2)', border: '1px solid #2d2d4e',
     borderRadius: 8, marginBottom: 6,
   },
 };
@@ -228,12 +228,12 @@ export default function WeeklyReview() {
     setReview(r => ({ ...r, [field]: val }));
   }
 
-  const priorityColors = ['#4F6EF7', '#10B981', '#F59E0B'];
+  const priorityColors = ['var(--df-accent)', '#10B981', '#F59E0B'];
   const nextWeekLabel = `${format(weekBase, 'MMM d')} – ${format(endOfWeek(weekBase, { weekStartsOn: 1 }), 'MMM d, yyyy')}`;
   const prevLabel = `${format(prevWeekStart, 'MMM d')} – ${format(prevWeekEnd, 'MMM d')}`;
 
   return (
-    <div style={s.page}>
+    <div style={s.page} className="df-review-shell">
       {/* Header */}
       <div style={s.header}>
         <div>
@@ -243,13 +243,13 @@ export default function WeeklyReview() {
         <div style={s.navRow}>
           <button style={s.navBtn} onClick={() => setWeekBase(w => subWeeks(w, 1))}>← Prev</button>
           <button
-            style={{ ...s.navBtn, color: format(weekBase, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd') ? '#2d2d4e' : '#888899', cursor: format(weekBase, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd') ? 'default' : 'pointer' }}
+            style={{ ...s.navBtn, color: format(weekBase, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd') ? 'var(--df-border)' : 'var(--df-muted)', cursor: format(weekBase, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd') ? 'default' : 'pointer' }}
             onClick={() => setWeekBase(startOfWeek(today, { weekStartsOn: 1 }))}
           >
             This week
           </button>
           <button
-            style={{ ...s.navBtn, color: weekBase > startOfWeek(today, { weekStartsOn: 1 }) ? '#888899' : '#2d2d4e', cursor: weekBase > startOfWeek(today, { weekStartsOn: 1 }) ? 'pointer' : 'default' }}
+            style={{ ...s.navBtn, color: weekBase > startOfWeek(today, { weekStartsOn: 1 }) ? 'var(--df-muted)' : 'var(--df-border)', cursor: weekBase > startOfWeek(today, { weekStartsOn: 1 }) ? 'pointer' : 'default' }}
             onClick={() => { if (weekBase <= startOfWeek(today, { weekStartsOn: 1 })) return; setWeekBase(w => addWeeks(w, 1)); }}
           >
             Next →
@@ -263,7 +263,7 @@ export default function WeeklyReview() {
 
         <div style={s.statRow}>
           <div style={s.stat}>
-            <div style={{ ...s.statNum, color: '#4F6EF7' }}>
+            <div style={{ ...s.statNum, color: 'var(--df-accent)' }}>
               {taskStats.pct !== null ? `${taskStats.pct}%` : '—'}
             </div>
             <div style={s.statLabel}>
@@ -290,8 +290,8 @@ export default function WeeklyReview() {
               <div key={b.id} style={s.bookItem}>
                 <span style={{ fontSize: 16 }}>📖</span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8f0' }}>{b.title}</div>
-                  {b.author && <div style={{ fontSize: 11, color: '#888899' }}>{b.author}</div>}
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--df-text)' }}>{b.title}</div>
+                  {b.author && <div style={{ fontSize: 11, color: 'var(--df-muted)' }}>{b.author}</div>}
                 </div>
               </div>
             ))}

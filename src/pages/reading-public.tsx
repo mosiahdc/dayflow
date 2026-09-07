@@ -149,55 +149,55 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
       fontSize: 12,
       cursor: 'pointer',
       fontWeight: 500,
-      background: active ? '#4F6EF7' : '#1e1e3a',
-      color: active ? '#fff' : '#888899',
-      border: `1px solid ${active ? '#4F6EF7' : '#2d2d4e'}`,
+      background: active ? 'var(--df-accent)' : 'var(--df-surface2)',
+      color: active ? '#fff' : 'var(--df-muted)',
+      border: `1px solid ${active ? 'var(--df-accent)' : 'var(--df-border)'}`,
     };
   }
 
   const s: Record<string, React.CSSProperties> = {
     page: {
       minHeight: '100vh',
-      background: '#12121f',
-      color: '#e8e8f0',
+      background: 'var(--df-bg)',
+      color: 'var(--df-text)',
       fontFamily: 'system-ui, -apple-system, sans-serif',
       padding: '0 0 60px',
     },
     header: {
-      background: '#1a1a2e',
-      borderBottom: '1px solid #2d2d4e',
+      background: 'var(--df-surface)',
+      borderBottom: '1px solid var(--df-border)',
       padding: '24px 20px 20px',
     },
     logo: {
       fontSize: 13,
       fontWeight: 700,
-      color: '#4F6EF7',
+      color: 'var(--df-accent)',
       letterSpacing: '0.08em',
       textTransform: 'uppercase' as const,
     },
-    title: { fontSize: 22, fontWeight: 700, color: '#e8e8f0', marginTop: 4 },
-    subtitle: { fontSize: 13, color: '#888899', marginTop: 4 },
+    title: { fontSize: 22, fontWeight: 700, color: 'var(--df-text)', marginTop: 4 },
+    subtitle: { fontSize: 13, color: 'var(--df-muted)', marginTop: 4 },
     statsRow: { display: 'flex', gap: 12, flexWrap: 'wrap' as const, marginTop: 16 },
     stat: {
-      background: '#1e1e3a',
-      border: '1px solid #2d2d4e',
+      background: 'var(--df-surface2)',
+      border: '1px solid var(--df-border)',
       borderRadius: 10,
       padding: '10px 16px',
       minWidth: 90,
     },
-    statNum: { fontSize: 22, fontWeight: 700, color: '#4F6EF7' },
-    statLabel: { fontSize: 11, color: '#888899', marginTop: 2 },
+    statNum: { fontSize: 22, fontWeight: 700, color: 'var(--df-accent)' },
+    statLabel: { fontSize: 11, color: 'var(--df-muted)', marginTop: 2 },
     body: { padding: '20px', maxWidth: 680, margin: '0 auto' },
     controls: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' as const },
     input: {
       flex: 1,
       minWidth: 160,
-      background: '#1a1a2e',
-      border: '1px solid #2d2d4e',
+      background: 'var(--df-surface)',
+      border: '1px solid var(--df-border)',
       borderRadius: 8,
       padding: '8px 12px',
       fontSize: 13,
-      color: '#e8e8f0',
+      color: 'var(--df-text)',
       outline: 'none',
     },
 
@@ -205,26 +205,26 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
       display: 'flex',
       gap: 14,
       alignItems: 'flex-start',
-      background: '#1a1a2e',
-      border: '1px solid #2d2d4e',
+      background: 'var(--df-surface)',
+      border: '1px solid var(--df-border)',
       borderRadius: 12,
       padding: 14,
       marginBottom: 10,
     },
-    bookTitle: { fontSize: 14, fontWeight: 600, color: '#e8e8f0', lineHeight: 1.4 },
-    bookAuthor: { fontSize: 12, color: '#888899', marginTop: 3 },
+    bookTitle: { fontSize: 14, fontWeight: 600, color: 'var(--df-text)', lineHeight: 1.4 },
+    bookAuthor: { fontSize: 12, color: 'var(--df-muted)', marginTop: 3 },
     bookMeta: { display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' as const },
     badge: {
       fontSize: 11,
-      color: '#888899',
-      background: '#1e1e3a',
-      border: '1px solid #2d2d4e',
+      color: 'var(--df-muted)',
+      background: 'var(--df-surface2)',
+      border: '1px solid var(--df-border)',
       borderRadius: 6,
       padding: '2px 8px',
     },
     finishedBadge: {
       fontSize: 11,
-      color: '#10B981',
+      color: 'var(--df-green)',
       background: 'rgba(16,185,129,0.1)',
       border: '1px solid rgba(16,185,129,0.3)',
       borderRadius: 6,
@@ -250,7 +250,7 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
                 <div style={s.statLabel}>Books read</div>
               </div>
               <div style={s.stat}>
-                <div style={{ ...s.statNum, color: '#10B981' }}>{booksThisYear}</div>
+                <div style={{ ...s.statNum, color: 'var(--df-green)' }}>{booksThisYear}</div>
                 <div style={s.statLabel}>This year</div>
               </div>
               <div style={s.stat}>
@@ -271,11 +271,11 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
       {/* Body */}
       <div style={s.body}>
         {loading && (
-          <p style={{ color: '#888899', textAlign: 'center', paddingTop: 40 }}>Loading…</p>
+          <p style={{ color: 'var(--df-muted)', textAlign: 'center', paddingTop: 40 }}>Loading…</p>
         )}
         {error && <p style={{ color: '#EF4444', textAlign: 'center', paddingTop: 40 }}>{error}</p>}
         {!loading && !error && books.length === 0 && (
-          <p style={{ color: '#888899', textAlign: 'center', paddingTop: 40 }}>
+          <p style={{ color: 'var(--df-muted)', textAlign: 'center', paddingTop: 40 }}>
             No finished books yet.
           </p>
         )}
@@ -298,7 +298,7 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
             </div>
 
             {filtered.length === 0 && (
-              <p style={{ color: '#888899', textAlign: 'center', padding: '30px 0' }}>
+              <p style={{ color: 'var(--df-muted)', textAlign: 'center', padding: '30px 0' }}>
                 No results.
               </p>
             )}
@@ -340,7 +340,7 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
           </>
         )}
 
-        <div style={{ marginTop: 40, textAlign: 'center', fontSize: 12, color: '#2d2d4e' }}>
+        <div style={{ marginTop: 40, textAlign: 'center', fontSize: 12, color: 'var(--df-border2)' }}>
           Powered by DayFlow
         </div>
       </div>

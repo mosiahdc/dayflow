@@ -341,18 +341,21 @@ export default function HabitTracker() {
     >
       {/* Header */}
       <div
-        className="px-3 py-2.5 flex justify-between items-center"
-        style={{ background: 'var(--df-green)' }}
+        className="px-4 py-3 flex justify-between items-center"
+        style={{ background: 'var(--df-surface)', borderBottom: '1px solid var(--df-border)' }}
       >
-        <span className="font-semibold text-sm">✅ Habit Tracker</span>
+        <div>
+          <span className="df-kicker">WEEKLY CONSISTENCY</span>
+          <div className="font-semibold text-sm mt-0.5" style={{ color: 'var(--df-text)' }}>Habit tracker</div>
+        </div>
         <button
           onClick={() => {
             setEditingHabit(undefined);
             setShowForm(true);
           }}
-          className="text-xs bg-white/20 hover:bg-white/30 px-2 py-1 rounded text-white"
+          className="df-btn df-btn-primary"
         >
-          + Add Habit
+          + Add habit
         </button>
       </div>
 

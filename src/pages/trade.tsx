@@ -12,72 +12,50 @@ export default function TradePage() {
   const { trades, fetchTrades, loading } = useTradeStore();
   const [activeTab, setActiveTab] = useState<TradeTab>('discipline');
   const [activeMonth, setActiveMonth] = useState(() => format(new Date(), 'yyyy-MM'));
-
   const monthDate = useMemo(() => new Date(`${activeMonth}-01`), [activeMonth]);
 
-  useEffect(() => {
-    fetchTrades();
-  }, [fetchTrades]);
+  useEffect(() => { fetchTrades(); }, [fetchTrades]);
 
   const goMonth = (dir: 1 | -1) => {
     const fn = dir === 1 ? addMonths : subMonths;
     setActiveMonth(format(fn(monthDate, 1), 'yyyy-MM'));
   };
 
-  const tabs: { id: TradeTab; label: string }[] = [
-    { id: 'discipline', label: '🎯 Project Discipline' },
-    { id: 'journal', label: '📓 Trade Journal' },
-    { id: 'dashboard', label: '📊 Dashboard' },
-    { id: 'trades', label: '📋 Trades' },
+  const tabs: { id: TradeTab; label: string; hint: string }[] = [
+    { id: 'discipline', label: 'Project Discipline', hint: 'Risk & weekly rules' },
+    { id: 'journal', label: 'Journal', hint: 'Review execution' },
+    { id: 'dashboard', label: 'Calendar', hint: 'P&L by day' },
+    { id: 'trades', label: 'Trades', hint: 'All positions' },
   ];
 
   return (
-    <div className="max-w-screen-xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold dark:text-white">📈 Trading Journey</h1>
-      </div>
-
-      <div className="flex gap-1 mb-4 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl w-fit">
+    <div className="df-trade-page">
+      <div className="df-trade-subnav" role="tablist" aria-label="Trading sections">
         {tabs.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all
-              ${
-                activeTab === id
-                  ? 'bg-white dark:bg-gray-800 text-brand-accent shadow-sm'
-                  : 'text-brand-muted hover:text-brand-dark dark:hover:text-white'
-              }`}
-          >
+          <button key={id} onClick={() => setActiveTab(id)} className={activeTab === id ? 'is-active' : ''} title={tabs.find((t) => t.id === id)?.hint}>
             {label}
           </button>
         ))}
       </div>
 
       {loading && activeTab !== 'journal' ? (
-        <div className="text-center py-12 text-brand-muted text-sm">Loading trades…</div>
+        <div className="df-card text-center py-12 text-brand-muted text-sm">Loading trading data…</div>
       ) : (
         <>
           {activeTab === 'discipline' && <ProjectDiscipline trades={trades} />}
           {activeTab === 'journal' && <TradeJournal />}
           {activeTab === 'dashboard' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <button
-                  onClick={() => goMonth(-1)}
-                  className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
-                >
-                  ← Prev
-                </button>
-                <span className="font-semibold text-sm dark:text-white">
-                  {format(monthDate, 'MMMM yyyy')}
-                </span>
-                <button
-                  onClick={() => goMonth(1)}
-                  className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
-                >
-                  Next →
-                </button>
+            <div className="df-card">
+              <div className="df-trade-toolbar">
+                <div>
+                  <span className="df-kicker">TRADING CALENDAR</span>
+                  <h2>Daily performance</h2>
+                </div>
+                <div className="df-trade-month-nav">
+                  <button onClick={() => goMonth(-1)} aria-label="Previous month">←</button>
+                  <span>{format(monthDate, 'MMMM yyyy')}</span>
+                  <button onClick={() => goMonth(1)} aria-label="Next month">→</button>
+                </div>
               </div>
               <TradeCalendar monthDate={monthDate} trades={trades} />
             </div>

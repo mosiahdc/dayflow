@@ -1209,7 +1209,7 @@ export default function DocumentsPage() {
   });
 
   return (
-    <div style={{ minHeight: 'calc(100vh - 130px)' }}>
+    <div className="df-page df-reading-page" style={{ minHeight: 'calc(100vh - 130px)' }}>
       {/* Tab bar */}
       <div style={{ display:'flex',gap:4,padding:'8px 16px',background:'var(--df-surface)',
         borderBottom:'1px solid var(--df-border)',marginBottom:0,flexWrap:'wrap' }}>

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { format } from 'date-fns';
 
 export type View =
+  | 'home'
   | 'day'
   | 'week'
   | 'month'
@@ -43,7 +44,7 @@ interface UIStore {
 export const useUIStore = create<UIStore>()(
   persist(
     (set) => ({
-      activeView: 'day',
+      activeView: 'home',
       selectedDate: format(new Date(), 'yyyy-MM-dd'),
       weekStart: format(new Date(), 'yyyy-MM-dd'),
       activeMonth: format(new Date(), 'yyyy-MM'),

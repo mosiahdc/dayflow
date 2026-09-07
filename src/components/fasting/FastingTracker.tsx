@@ -144,14 +144,14 @@ export default function FastingTracker() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+    <div className="df-card overflow-hidden" style={{ padding: 0 }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-3 flex items-center justify-between">
+      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--df-border)' }}>
         <div className="flex items-center gap-2">
-          <span className="text-lg">🕐</span>
-          <span className="font-semibold text-sm">Intermittent Fasting</span>
+          <span className="df-kicker">FASTING</span>
+          <span className="font-semibold text-sm" style={{ color: 'var(--df-text)' }}>Current window</span>
           {streak > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium">
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--df-amber-soft)', color: 'var(--df-amber)' }}>
               🔥 {streak} day streak
             </span>
           )}

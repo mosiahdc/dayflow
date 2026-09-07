@@ -1511,7 +1511,7 @@ function HabitDetailPage({
   };
 
   return (
-    <div className="max-w-screen-xl mx-auto">
+    <div className="df-page">
       {/* Back + title */}
       <div className="flex items-center gap-3 mb-5">
         <button
@@ -1774,7 +1774,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-screen-xl mx-auto">
-      <h1 className="text-xl font-bold dark:text-white mb-4">📊 Analytics</h1>
+      
 
       {/* Main tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">

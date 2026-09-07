@@ -104,8 +104,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-xl font-bold dark:text-white mb-4">⚙️ Settings</h1>
+    <div className="df-page df-settings-page">
+      
 
       {/* ── Trading ── */}
       <Section title="📈 Trading">

@@ -239,7 +239,7 @@ export default function MonthlyRecapCard({ documents, onClose }: Props) {
     padding: 16,
   };
   const modal: React.CSSProperties = {
-    background: '#1a1a2e', border: '1px solid #2d2d4e',
+    background: 'var(--df-surface)', border: '1px solid var(--df-border)',
     borderRadius: 16, padding: 20, maxWidth: 700, width: '100%',
   };
 
@@ -251,27 +251,27 @@ export default function MonthlyRecapCard({ documents, onClose }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
               onClick={() => setMonthOffset(o => o - 1)}
-              style={{ background: '#1e1e3a', border: '1px solid #2d2d4e', borderRadius: 8, padding: '6px 12px', color: '#888899', cursor: 'pointer', fontSize: 14 }}
+              style={{ background: 'var(--df-surface2)', border: '1px solid var(--df-border)', borderRadius: 8, padding: '6px 12px', color: 'var(--df-muted)', cursor: 'pointer', fontSize: 14 }}
             >←</button>
-            <span style={{ fontSize: 15, fontWeight: 600, color: '#e8e8f0', minWidth: 130, textAlign: 'center' }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--df-text)', minWidth: 130, textAlign: 'center' }}>
               {stats.monthLabel}
             </span>
             <button
               onClick={() => setMonthOffset(o => Math.min(0, o + 1))}
-              style={{ background: '#1e1e3a', border: '1px solid #2d2d4e', borderRadius: 8, padding: '6px 12px', color: monthOffset < 0 ? '#888899' : '#2d2d4e', cursor: monthOffset < 0 ? 'pointer' : 'default', fontSize: 14 }}
+              style={{ background: 'var(--df-surface2)', border: '1px solid var(--df-border)', borderRadius: 8, padding: '6px 12px', color: monthOffset < 0 ? 'var(--df-muted)' : 'var(--df-border2)', cursor: monthOffset < 0 ? 'pointer' : 'default', fontSize: 14 }}
               disabled={monthOffset >= 0}
             >→</button>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               onClick={handleDownload}
-              style={{ background: '#4F6EF7', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}
+              style={{ background: 'var(--df-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}
             >
               ⬇ Download PNG
             </button>
             <button
               onClick={onClose}
-              style={{ background: 'transparent', color: '#888899', border: '1px solid #2d2d4e', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
+              style={{ background: 'transparent', color: 'var(--df-muted)', border: '1px solid var(--df-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
             >
               Close
             </button>
@@ -281,10 +281,10 @@ export default function MonthlyRecapCard({ documents, onClose }: Props) {
         {/* Canvas preview */}
         <canvas
           ref={canvasRef}
-          style={{ width: '100%', borderRadius: 10, display: 'block', border: '1px solid #2d2d4e' }}
+          style={{ width: '100%', borderRadius: 10, display: 'block', border: '1px solid var(--df-border)' }}
         />
 
-        <p style={{ fontSize: 11, color: '#888899', marginTop: 10, textAlign: 'center' }}>
+        <p style={{ fontSize: 11, color: 'var(--df-muted)', marginTop: 10, textAlign: 'center' }}>
           Screenshot or download the image to share your reading recap
         </p>
       </div>

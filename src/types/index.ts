@@ -12,6 +12,7 @@ export type RecurringPattern =
 export type TimerMode = 'countdown' | 'pomodoro';
 export type TimerState = 'idle' | 'running' | 'paused' | 'done';
 export type View =
+  | 'home'
   | 'day'
   | 'week'
   | 'month'

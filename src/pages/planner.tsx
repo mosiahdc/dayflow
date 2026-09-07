@@ -163,7 +163,7 @@ export default function PlannerPage() {
 
   return (
     <DndContext collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="max-w-screen-xl mx-auto flex gap-4 relative">
+      <div className="df-page flex gap-4 relative">
         {/* Mobile floating 📚 button — sits above bottom nav */}
         <button
           onClick={toggleSidebar}
@@ -211,17 +211,12 @@ export default function PlannerPage() {
         {/* Main content */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
           {/* Planner sub-nav: Day / Week / Month */}
-          <div className="flex gap-1.5 shrink-0" style={{ height: '40px' }}>
+          <div className="df-segmented shrink-0">
             {SUB_TABS.map(({ view, label, icon }) => (
               <button
                 key={view}
                 onClick={() => goSubView(view)}
-                className={`px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5
-                  ${
-                    subView === view
-                      ? 'bg-brand-accent text-white'
-                      : 'border dark:border-gray-600 dark:text-white text-brand-dark hover:border-brand-accent'
-                  }`}
+                className={subView === view ? 'is-active' : ''}
               >
                 <span>{icon}</span>
                 {label}
