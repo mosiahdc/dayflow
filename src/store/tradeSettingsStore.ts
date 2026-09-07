@@ -313,15 +313,31 @@ export const useTradeSettingsStore = create<TradeSettingsStore>((set, get) => ({
   fetchSettings: async () => {
     set({ loading: true });
 
-    const { data: settingsData } = await supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      set({ initialBalance: 0, transactions: [], loading: false });
+      return;
+    }
+
+    // Always scope both settings and cash-flow rows to the signed-in user explicitly.
+    // This also makes Initial Balance loading deterministic instead of relying only on RLS.
+    const { data: settingsData, error: settingsError } = await supabase
       .from('trade_settings')
       .select('initial_balance')
-      .single();
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    const { data: txData } = await supabase
+    const { data: txData, error: txError } = await supabase
       .from('trade_transactions')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
+
+    if (settingsError) console.error('Could not load trading Initial Balance:', settingsError);
+    if (txError) console.error('Could not load trading cash flow:', txError);
 
     set({
       initialBalance: settingsData ? Number(settingsData.initial_balance) : 0,
@@ -333,19 +349,22 @@ export const useTradeSettingsStore = create<TradeSettingsStore>((set, get) => ({
   },
 
   setInitialBalance: async (initialBalance) => {
-    set({ initialBalance });
-
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) throw new Error('You need to be signed in before saving Initial Balance.');
 
-    await supabase
+    const { error } = await supabase
       .from('trade_settings')
       .upsert(
         { user_id: user.id, initial_balance: initialBalance, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       );
+
+    if (error) throw new Error(`Could not save Initial Balance: ${error.message}`);
+
+    // Only update the live UI after Supabase confirms the value was persisted.
+    set({ initialBalance });
   },
 
   addTransaction: async (type, amount, note) => {

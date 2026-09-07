@@ -83,6 +83,7 @@ export default function SettingsPage() {
 
   const [balanceInput, setBalanceInput] = useState('');
   const [balanceSaved, setBalanceSaved] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
 
   useEffect(() => {
     setBalanceInput(String(initialBalance || ''));
@@ -91,9 +92,15 @@ export default function SettingsPage() {
   const handleSaveBalance = async () => {
     const val = parseFloat(balanceInput);
     if (Number.isNaN(val) || val < 0) return;
-    await setInitialBalance(val);
-    setBalanceSaved(true);
-    setTimeout(() => setBalanceSaved(false), 2000);
+    setBalanceError('');
+    try {
+      await setInitialBalance(val);
+      setBalanceSaved(true);
+      setTimeout(() => setBalanceSaved(false), 2000);
+    } catch (error) {
+      setBalanceSaved(false);
+      setBalanceError(error instanceof Error ? error.message : 'Could not save Initial Balance.');
+    }
   };
 
   return (
@@ -131,6 +138,7 @@ export default function SettingsPage() {
               {balanceSaved ? '✓ Saved' : 'Save'}
             </button>
           </div>
+          {balanceError && <p className="text-[10px] text-red-500 mt-1">{balanceError}</p>}
         </Row>
       </Section>
 

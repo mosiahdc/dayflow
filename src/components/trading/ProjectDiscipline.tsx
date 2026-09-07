@@ -5,6 +5,7 @@ import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 import TradeOrdersDropdown from './TradeOrdersDropdown';
 import ExnessCashflowSync from './ExnessCashflowSync';
+import { reconcileExnessBalance, phtTimestampToUtcMs } from '@/lib/exnessBalance';
 
 const PROJECT_START = '2026-08-01 00:00:00';
 
@@ -324,45 +325,48 @@ export default function ProjectDiscipline({ trades }: Props) {
       .map(([date, stats]) => ({ date, ...stats }));
   }, [projectTrades]);
 
-  // ── Transactions net ───────────────────────────────────────────────────────
-  const txNet = useMemo(() => transactions.reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  // ── Project cash flow ──────────────────────────────────────────────────────
+  // Initial Balance is the account balance at the Project start (Aug 1, 2026),
+  // so only deposits/withdrawals on or after that start belong on top of it.
+  const projectTransactions = useMemo(() => {
+    const projectStartUtc = new Date('2026-07-31T16:00:00.000Z').getTime(); // Aug 1 00:00 PHT
+    return transactions.filter((t) => new Date(t.createdAt).getTime() >= projectStartUtc);
+  }, [transactions]);
 
-  // ── Live balance = initial + tx net + ALL project PNL ─────────────────────
-  const projectPnl = useMemo(() => dailySummary.reduce((sum, d) => sum + d.pnl, 0), [dailySummary]);
-  const balance = initialBalance + txNet + projectPnl;
+  // Rebuild the broker ledger in chronological order, including Exness
+  // Negative Balance Protection (D-null) after stop-out batches. The Exness
+  // trade CSV does not include those D-null cash adjustments as normal PNL.
+  const reconciliation = useMemo(
+    () => reconcileExnessBalance(initialBalance, projectTrades, projectTransactions),
+    [initialBalance, projectTrades, projectTransactions]
+  );
+
+  const depositsTotal = reconciliation.deposits;
+  const withdrawalsTotal = reconciliation.withdrawals;
+  const fundingFeesTotal = reconciliation.fundingFees;
+  const negativeBalanceProtection = reconciliation.negativeBalanceProtection;
+  const projectPnl = reconciliation.tradingPnl;
+  const balance = reconciliation.balance;
 
   // ── Weekly base = balance as of Monday 00:00 UTC+8 ────────────────────────
-  // We compute what the balance was at the start of the current week by
-  // subtracting PNL from trades that occurred AFTER Monday 00:00 UTC+8.
+  // Rebuild the exact account balance at Monday 00:00 PHT from the ledger.
   const weekMondayDate = currentWeekMondayUTC8(); // e.g. '2026-07-07'
   const weekMondayTimestamp = `${weekMondayDate} 00:00:00`;
 
-  // PNL earned this week (trades on or after this Monday)
-  const thisWeekPnl = useMemo(
+  // Rebuild the same Exness ledger only through Monday 00:00 PHT. This is more
+  // accurate than subtracting this week's PNL because D-null resets are cash
+  // adjustments that only exist when the running balance actually went negative.
+  const weekMondayMs = phtTimestampToUtcMs(weekMondayTimestamp);
+  const weeklyBase = useMemo(
     () =>
-      projectTrades
-        .filter((t) => t.closeTime >= weekMondayTimestamp)
-        .reduce((sum, t) => sum + t.realizedPnl, 0),
-    [projectTrades, weekMondayTimestamp]
+      reconcileExnessBalance(
+        initialBalance,
+        projectTrades,
+        projectTransactions,
+        weekMondayMs ?? undefined
+      ).balance,
+    [initialBalance, projectTrades, projectTransactions, weekMondayMs]
   );
-
-  // Tx that happened this week
-  const thisWeekTxNet = useMemo(
-    () =>
-      transactions
-        .filter((t) => {
-          // createdAt is UTC ISO, convert to PHT for comparison
-          const phtDate = new Date(new Date(t.createdAt).getTime() + 8 * 60 * 60 * 1000)
-            .toISOString()
-            .slice(0, 10);
-          return phtDate >= weekMondayDate;
-        })
-        .reduce((sum, t) => sum + t.amount, 0),
-    [transactions, weekMondayDate]
-  );
-
-  // Weekly base = live balance minus this week's changes = Monday 00:00 snapshot
-  const weeklyBase = balance - thisWeekPnl - thisWeekTxNet;
 
   // All weekly parameters derive from weeklyBase (locked for the week)
   const weeklyMargin = weeklyBase * 0.1;
@@ -415,14 +419,40 @@ export default function ProjectDiscipline({ trades }: Props) {
             {Math.abs(balance).toFixed(4)}
             <span className="text-xs font-normal text-brand-muted ml-1">USD</span>
           </p>
-          <p className="text-[10px] text-brand-muted leading-relaxed">
-            {initialBalance !== 0 && <>Base {initialBalance.toFixed(2)} · </>}
-            Cash flow {txNet >= 0 ? '+' : ''}
-            {txNet.toFixed(4)} · PNL {projectPnl >= 0 ? '+' : ''}
-            {projectPnl.toFixed(4)}
-          </p>
-          <p className="text-[10px] text-brand-muted">
-            Initial balance + Exness deposits/withdrawals + project PNL. Transfers are ignored.
+          <div className="mt-1 space-y-0.5 text-[10px] text-brand-muted leading-relaxed">
+            <div className="grid grid-cols-2 gap-x-3">
+              <span>Initial balance</span>
+              <span className="text-right font-medium">{initialBalance >= 0 ? '+' : ''}{initialBalance.toFixed(2)}</span>
+              <span>Deposits</span>
+              <span className="text-right font-medium text-green-600 dark:text-green-400">+{depositsTotal.toFixed(2)}</span>
+              <span>Withdrawals</span>
+              <span className="text-right font-medium text-red-500 dark:text-red-400">{withdrawalsTotal.toFixed(2)}</span>
+              {fundingFeesTotal !== 0 && (
+                <>
+                  <span>Fees</span>
+                  <span className="text-right font-medium">{fundingFeesTotal >= 0 ? '+' : ''}{fundingFeesTotal.toFixed(2)}</span>
+                </>
+              )}
+              <span>Closed trading PNL</span>
+              <span className={`text-right font-medium ${projectPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                {projectPnl >= 0 ? '+' : ''}{projectPnl.toFixed(2)}
+              </span>
+              {negativeBalanceProtection > 0 && (
+                <>
+                  <span title="Exness Negative Balance Protection / D-null after stop-out">NBP / D-null resets ({reconciliation.resets.length})</span>
+                  <span className="text-right font-medium text-cyan-600 dark:text-cyan-400">
+                    +{negativeBalanceProtection.toFixed(2)}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="pt-1 mt-1 border-t border-gray-200 dark:border-gray-700 flex justify-between font-semibold">
+              <span>Calculated balance</span>
+              <span>{balance.toFixed(2)} USD</span>
+            </div>
+          </div>
+          <p className="text-[9px] text-brand-muted mt-1">
+            Chronological Exness ledger: Initial Balance + deposits/withdrawals + closed PNL + Negative Balance Protection resets. Transfers are ignored.
           </p>
           <div className="flex gap-1 mt-1.5 flex-wrap">
             <button
