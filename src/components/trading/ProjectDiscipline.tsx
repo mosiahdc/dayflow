@@ -1,31 +1,54 @@
 import { useMemo, useState, useEffect } from 'react';
-import { format, parseISO, startOfWeek } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 import TradeOrdersDropdown from './TradeOrdersDropdown';
 import ExnessCashflowSync from './ExnessCashflowSync';
-import { reconcileExnessBalance, phtTimestampToUtcMs } from '@/lib/exnessBalance';
 
 const PROJECT_START = '2026-08-01 00:00:00';
 
-// UTC+8 helpers
-function nowUTC8(): Date {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000);
-}
-function toUTC8(isoString: string): string {
-  const utc8 = new Date(new Date(isoString).getTime() + 8 * 60 * 60 * 1000);
-  return format(utc8, 'MMM d, HH:mm');
-}
-function todayUTC8(): string {
-  return nowUTC8().toISOString().slice(0, 10);
+// Trading-account calendar helpers. All project/week boundaries are calculated
+// in PHT (UTC+8), independent of the browser/OS timezone.
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+function phtCalendarDate(nowMs = Date.now()): string {
+  return new Date(nowMs + PHT_OFFSET_MS).toISOString().slice(0, 10);
 }
 
-// Get the most recent Monday 00:00 in UTC+8 (week snapshot date)
-function currentWeekMondayUTC8(): string {
-  const now = nowUTC8();
-  const monday = startOfWeek(now, { weekStartsOn: 1 }); // 1 = Monday
-  return monday.toISOString().slice(0, 10);
+function toUTC8(isoString: string): string {
+  const ms = new Date(isoString).getTime();
+  if (!Number.isFinite(ms)) return isoString;
+  const shifted = new Date(ms + PHT_OFFSET_MS);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[shifted.getUTCMonth()]} ${shifted.getUTCDate()}, ${String(shifted.getUTCHours()).padStart(2, '0')}:${String(shifted.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+function todayUTC8(): string {
+  return phtCalendarDate();
+}
+
+// Most recent Monday in PHT. Do calendar arithmetic on the shifted UTC value
+// rather than calling date-fns startOfWeek on a pre-shifted Date. The old
+// approach double-applied the +8 timezone and could label Sunday as Monday.
+function currentWeekMondayUTC8(nowMs = Date.now()): string {
+  const pht = new Date(nowMs + PHT_OFFSET_MS);
+  const weekday = pht.getUTCDay(); // Sunday=0, Monday=1, ...
+  const daysSinceMonday = (weekday + 6) % 7;
+  const mondayPhtMidnight = Date.UTC(
+    pht.getUTCFullYear(),
+    pht.getUTCMonth(),
+    pht.getUTCDate() - daysSinceMonday,
+    0,
+    0,
+    0
+  );
+  return new Date(mondayPhtMidnight).toISOString().slice(0, 10);
+}
+
+function phtMidnightToUtcMs(date: string): number {
+  const [year, month, day] = date.split('-').map(Number);
+  return Date.UTC(year!, month! - 1, day!, 0, 0, 0) - PHT_OFFSET_MS;
 }
 
 type MarginMode = 'Low' | 'Normal' | 'Hype' | 'Volatile';
@@ -333,40 +356,46 @@ export default function ProjectDiscipline({ trades }: Props) {
     return transactions.filter((t) => new Date(t.createdAt).getTime() >= projectStartUtc);
   }, [transactions]);
 
-  // Rebuild the broker ledger in chronological order, including Exness
-  // Negative Balance Protection (D-null) after stop-out batches. The Exness
-  // trade CSV does not include those D-null cash adjustments as normal PNL.
-  const reconciliation = useMemo(
-    () => reconcileExnessBalance(initialBalance, projectTrades, projectTransactions),
-    [initialBalance, projectTrades, projectTransactions]
+  const depositsTotal = useMemo(
+    () => projectTransactions.filter((t) => t.type === 'deposit').reduce((sum, t) => sum + t.amount, 0),
+    [projectTransactions]
   );
+  const withdrawalsTotal = useMemo(
+    () => projectTransactions.filter((t) => t.type === 'withdrawal').reduce((sum, t) => sum + t.amount, 0),
+    [projectTransactions]
+  );
+  const fundingFeesTotal = useMemo(
+    () => projectTransactions.filter((t) => t.type === 'funding_fee').reduce((sum, t) => sum + t.amount, 0),
+    [projectTransactions]
+  );
+  const txNet = depositsTotal + withdrawalsTotal + fundingFeesTotal;
 
-  const depositsTotal = reconciliation.deposits;
-  const withdrawalsTotal = reconciliation.withdrawals;
-  const fundingFeesTotal = reconciliation.fundingFees;
-  const negativeBalanceProtection = reconciliation.negativeBalanceProtection;
-  const projectPnl = reconciliation.tradingPnl;
-  const balance = reconciliation.balance;
+  // ── Live balance = opening balance + project cash flow + closed project PNL ─
+  const projectPnl = useMemo(() => dailySummary.reduce((sum, d) => sum + d.pnl, 0), [dailySummary]);
+  const balance = initialBalance + txNet + projectPnl;
 
-  // ── Weekly base = balance as of Monday 00:00 UTC+8 ────────────────────────
-  // Rebuild the exact account balance at Monday 00:00 PHT from the ledger.
-  const weekMondayDate = currentWeekMondayUTC8(); // e.g. '2026-07-07'
+  // ── Weekly base = carried-forward balance at Monday 00:00 PHT ─────────────
+  // The account ledger never resets at a week boundary. Weekly Base is only a
+  // snapshot of that continuous ledger immediately BEFORE Monday 00:00 PHT.
+  // This avoids a rollover gap when there are no events exactly at midnight.
+  const weekMondayDate = currentWeekMondayUTC8();
   const weekMondayTimestamp = `${weekMondayDate} 00:00:00`;
+  const weekMondayUtcMs = phtMidnightToUtcMs(weekMondayDate);
 
-  // Rebuild the same Exness ledger only through Monday 00:00 PHT. This is more
-  // accurate than subtracting this week's PNL because D-null resets are cash
-  // adjustments that only exist when the running balance actually went negative.
-  const weekMondayMs = phtTimestampToUtcMs(weekMondayTimestamp);
-  const weeklyBase = useMemo(
-    () =>
-      reconcileExnessBalance(
-        initialBalance,
-        projectTrades,
-        projectTransactions,
-        weekMondayMs ?? undefined
-      ).balance,
-    [initialBalance, projectTrades, projectTransactions, weekMondayMs]
-  );
+  const weeklyBase = useMemo(() => {
+    const pnlBeforeWeek = projectTrades
+      .filter((t) => t.closeTime < weekMondayTimestamp)
+      .reduce((sum, t) => sum + t.realizedPnl, 0);
+
+    const cashBeforeWeek = projectTransactions
+      .filter((t) => {
+        const txMs = new Date(t.createdAt).getTime();
+        return Number.isFinite(txMs) && txMs < weekMondayUtcMs;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return initialBalance + cashBeforeWeek + pnlBeforeWeek;
+  }, [initialBalance, projectTrades, projectTransactions, weekMondayTimestamp, weekMondayUtcMs]);
 
   // All weekly parameters derive from weeklyBase (locked for the week)
   const weeklyMargin = weeklyBase * 0.1;
@@ -437,14 +466,6 @@ export default function ProjectDiscipline({ trades }: Props) {
               <span className={`text-right font-medium ${projectPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                 {projectPnl >= 0 ? '+' : ''}{projectPnl.toFixed(2)}
               </span>
-              {negativeBalanceProtection > 0 && (
-                <>
-                  <span title="Exness Negative Balance Protection / D-null after stop-out">NBP / D-null resets ({reconciliation.resets.length})</span>
-                  <span className="text-right font-medium text-cyan-600 dark:text-cyan-400">
-                    +{negativeBalanceProtection.toFixed(2)}
-                  </span>
-                </>
-              )}
             </div>
             <div className="pt-1 mt-1 border-t border-gray-200 dark:border-gray-700 flex justify-between font-semibold">
               <span>Calculated balance</span>
@@ -452,7 +473,7 @@ export default function ProjectDiscipline({ trades }: Props) {
             </div>
           </div>
           <p className="text-[9px] text-brand-muted mt-1">
-            Chronological Exness ledger: Initial Balance + deposits/withdrawals + closed PNL + Negative Balance Protection resets. Transfers are ignored.
+            Uses Initial Balance from Settings + Exness deposits/withdrawals from Aug 1 + closed project PNL. Transfers are ignored.
           </p>
           <div className="flex gap-1 mt-1.5 flex-wrap">
             <button
@@ -484,7 +505,7 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
         </StatBox>
 
-        {/* Weekly Parameters — locked from Monday 00:00 PHT */}
+        {/* Weekly Parameters — carried forward at Monday 00:00 PHT */}
         <StatBox label="Weekly Parameters">
           <div className="flex items-center gap-1.5 mb-1.5">
             <span className="text-[10px] font-semibold text-brand-muted">Week of</span>
@@ -497,7 +518,7 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
             <div>
-              <p className="text-[10px] text-brand-muted">Weekly base (Mon 12AM)</p>
+              <p className="text-[10px] text-brand-muted">Weekly base (Mon 00:00 PHT)</p>
               <p className="text-base font-bold dark:text-white">${weeklyBase.toFixed(2)}</p>
             </div>
             <div>
@@ -518,7 +539,7 @@ export default function ProjectDiscipline({ trades }: Props) {
             </div>
           </div>
           <p className="text-[10px] text-brand-muted mt-1">
-            500× · Max 3 trades · 1-loss circuit breaker
+            Carried forward from the previous week · 500× · Max 3 trades · 1-loss circuit breaker
           </p>
         </StatBox>
 
