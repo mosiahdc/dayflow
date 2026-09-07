@@ -163,7 +163,7 @@ export default function PlannerPage() {
 
   return (
     <DndContext collisionDetection={pointerWithin} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-      <div className="df-page flex gap-4 relative">
+      <div className="df-page df-planner-page flex gap-4 relative">
         {/* Mobile floating 📚 button — sits above bottom nav */}
         <button
           onClick={toggleSidebar}

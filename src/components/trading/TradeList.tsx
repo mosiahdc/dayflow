@@ -258,7 +258,7 @@ export default function TradeList({ trades }: Props) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="df-trade-list flex flex-col gap-3">
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
         <input
@@ -367,7 +367,7 @@ export default function TradeList({ trades }: Props) {
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+      <div className="df-trade-card overflow-hidden">
         {/* Header */}
         <div
           className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700"
@@ -383,7 +383,7 @@ export default function TradeList({ trades }: Props) {
               checked={allFilteredSelected}
               onChange={toggleSelectAllFiltered}
               aria-label="Select all filtered trades"
-              className="accent-red-500"
+              className="df-checkbox"
             />
           )}
           <span>Symbol / Time</span>
@@ -421,7 +421,7 @@ export default function TradeList({ trades }: Props) {
                     checked={selectedTradeIds.has(trade.id)}
                     onChange={() => toggleTradeSelection(trade.id)}
                     aria-label={`Select ${trade.futures} trade`}
-                    className="accent-red-500"
+                    className="df-checkbox"
                   />
                 )}
                 {/* Symbol + time */}

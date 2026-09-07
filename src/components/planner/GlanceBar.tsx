@@ -35,7 +35,7 @@ const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 function GlanceBarSkeleton() {
   return (
     <div
-      className="rounded-xl px-4 py-3 flex items-center gap-4 animate-pulse"
+      className="df-glance-bar rounded-xl px-4 py-3 flex items-center gap-4 animate-pulse"
       style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
     >
       <div className="w-8 h-8 rounded-full shrink-0" style={{ background: 'var(--df-border)' }} />

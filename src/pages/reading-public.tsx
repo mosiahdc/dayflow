@@ -233,7 +233,7 @@ export default function PublicReadingLog({ userId }: { userId: string }) {
   };
 
   return (
-    <div style={s.page}>
+    <div className="df-public-reading-page" style={s.page}>
       {/* Header */}
       <div style={s.header}>
         <div style={{ maxWidth: 680, margin: '0 auto' }}>

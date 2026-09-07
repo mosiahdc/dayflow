@@ -263,7 +263,7 @@ function PlantRow({
       ) : (
         <>
           {/* Overall progress bar */}
-          <div className="w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full mb-2.5 overflow-hidden">
+          <div className="df-progress-sm mb-2.5">
             <div
               className="h-full rounded-full transition-all"
               style={{ width: `${overallProgress * 100}%`, backgroundColor: '#16a34a' }}
@@ -314,7 +314,7 @@ function PlantRow({
                     </span>
                   </div>
                   {/* Progress bar */}
-                  <div className="w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="df-progress-sm">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -437,7 +437,7 @@ export default function PlantTracker() {
           {sorted.map((plant) => (
             <div
               key={plant.id}
-              className="rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm overflow-hidden"
+              className="df-plant-card overflow-hidden"
             >
               <PlantRow
                 plant={plant}
@@ -472,7 +472,7 @@ export default function PlantTracker() {
               {archived.map((plant) => (
                 <div
                   key={plant.id}
-                  className="rounded-xl border dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm overflow-hidden opacity-60"
+                  className="df-plant-card overflow-hidden opacity-60"
                 >
                   <PlantRow
                     plant={plant}

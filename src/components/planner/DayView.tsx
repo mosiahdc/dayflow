@@ -176,7 +176,7 @@ export default function DayView({ date, scheduledTasks }: Props) {
 
   return (
     <div
-      className="rounded-xl overflow-hidden flex flex-col"
+      className="df-planner-board rounded-xl overflow-hidden flex flex-col"
       style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
     >
       {/* Header — blue accent bar matching wireframe */}

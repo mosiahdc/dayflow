@@ -117,7 +117,7 @@ export default function LibraryPage() {
   });
 
   return (
-    <div className="df-page">
+    <div className="df-page df-task-library-page">
       {/* Page header */}
       <div className="flex items-center justify-between mb-4">
         <div>

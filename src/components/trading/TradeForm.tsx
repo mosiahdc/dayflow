@@ -55,8 +55,8 @@ export default function TradeForm({ onClose }: Props) {
   const inputCls = 'w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <div className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="df-modal-panel w-full max-w-sm max-h-[90vh] overflow-y-auto">
         <div className="px-6 pt-5 pb-4">
           <h2 className="font-bold text-lg mb-4 dark:text-white">Add Trade</h2>
 

@@ -151,7 +151,7 @@ const TaskCard = memo(function TaskCard({
   return (
     <div
       ref={setNodeRef}
-      className={`absolute rounded text-xs z-10 overflow-hidden flex flex-col
+      className={`df-task-card absolute rounded text-xs z-10 overflow-hidden flex flex-col
         ${st.done ? 'opacity-40' : ''}
         ${isDragging ? 'opacity-30 z-50' : ''}`}
       style={{

@@ -212,7 +212,7 @@ export default function TaskLibrary() {
 
   return (
     <div
-      className="rounded-xl flex flex-col"
+      className="df-task-library-panel rounded-xl flex flex-col"
       style={{
         height: `${LIBRARY_HEIGHT}px`,
         background: 'var(--df-surface)',

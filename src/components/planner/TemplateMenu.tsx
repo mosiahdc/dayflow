@@ -40,7 +40,7 @@ export default function TemplateMenu({ date }: Props) {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-8 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 w-56 overflow-hidden">
+          <div className="df-popover absolute left-0 top-8 z-20 w-56 overflow-hidden">
 
             {/* Save current day as template */}
             <div className="p-3 border-b dark:border-gray-700">

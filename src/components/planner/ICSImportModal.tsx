@@ -221,9 +221,9 @@ export default function ICSImportModal({ onClose }: Props) {
   const selectedScheduled = scheduled.filter((e) => selected.has(e.uid));
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+    <div className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
       <div
-        className="w-full sm:max-w-lg bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-xl shadow-2xl flex flex-col"
+        className="df-modal-panel w-full sm:max-w-lg flex flex-col"
         style={{ maxHeight: '90vh' }}
       >
         {/* Header */}

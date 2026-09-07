@@ -19,8 +19,8 @@ export default function MiniTaskPicker({ date, onClose, initialSlot }: Props) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 w-full max-w-xs">
+        <div className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="df-modal-panel p-5 w-full max-w-xs">
                 <h3 className="font-bold text-sm mb-1 dark:text-white">Add task to {date}</h3>
 
                 <label className="text-xs text-brand-muted">Time slot</label>

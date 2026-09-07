@@ -132,12 +132,7 @@ function StatBox({
 }) {
   return (
     <div
-      className={`rounded-xl border p-4 flex flex-col gap-1 shadow-sm
-      ${
-        highlight
-          ? 'bg-brand-accent/5 border-brand-accent/30 dark:bg-brand-accent/10'
-          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-      }`}
+      className={`df-discipline-stat p-4 flex flex-col gap-1 ${highlight ? 'is-highlight' : ''}`}
     >
       <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{label}</p>
       {children}
@@ -170,10 +165,10 @@ function NotesCell({
   if (open)
     return (
       <div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
         onClick={(e) => e.target === e.currentTarget && setOpen(false)}
       >
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 w-full max-w-sm flex flex-col gap-3">
+        <div className="df-modal-panel p-5 w-full max-w-sm flex flex-col gap-3">
           <h3 className="font-bold text-sm dark:text-white">Trade Notes</h3>
           <textarea
             autoFocus
@@ -245,10 +240,10 @@ function VideoCell({
   if (open)
     return (
       <div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
         onClick={(e) => e.target === e.currentTarget && setOpen(false)}
       >
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 w-full max-w-sm flex flex-col gap-3">
+        <div className="df-modal-panel p-5 w-full max-w-sm flex flex-col gap-3">
           <h3 className="font-bold text-sm dark:text-white">Video Review Link</h3>
           <input
             autoFocus
@@ -446,7 +441,7 @@ export default function ProjectDiscipline({ trades }: Props) {
   const visibleWins = visibleTrades.filter((t) => t.realizedPnl > 0).length;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="df-project-discipline flex flex-col gap-4">
       {/* ── Row 1: Stats ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3">
         {/* Balance */}
@@ -599,7 +594,7 @@ export default function ProjectDiscipline({ trades }: Props) {
 
       {/* ── Transaction history ────────────────────────────────────────────── */}
       {showTxHistory && transactions.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden">
+        <div className="df-trade-card overflow-hidden">
           <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex justify-between items-center">
             <h3 className="text-xs font-semibold dark:text-white">Transaction History</h3>
             <button
@@ -652,10 +647,10 @@ export default function ProjectDiscipline({ trades }: Props) {
       {/* ── Transaction modal ──────────────────────────────────────────────── */}
       {txModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={(e) => e.target === e.currentTarget && setTxModal(null)}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 w-full max-w-sm flex flex-col gap-3">
+          <div className="df-modal-panel p-5 w-full max-w-sm flex flex-col gap-3">
             <h3 className="font-bold text-sm dark:text-white">{TX_CONFIG[txModal].label}</h3>
             {txModal === 'funding_fee' && (
               <p className="text-xs text-brand-muted -mt-1">
@@ -720,7 +715,7 @@ export default function ProjectDiscipline({ trades }: Props) {
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted px-1">
             Daily Summary
           </p>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden flex-1">
+          <div className="df-trade-card overflow-hidden flex-1">
             {dailySummary.length === 0 ? (
               <p className="text-xs text-brand-muted text-center py-8 px-3">No trades yet.</p>
             ) : (
@@ -783,7 +778,7 @@ export default function ProjectDiscipline({ trades }: Props) {
             )}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden flex-1">
+          <div className="df-trade-card overflow-hidden flex-1">
             <div
               className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700"
               style={{ gridTemplateColumns: '36px 1fr 72px 90px 80px 50px 100px 80px' }}

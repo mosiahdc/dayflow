@@ -44,7 +44,7 @@ function ProgressBar({ completed, planned }: { completed: number; planned: numbe
 
   return (
     <div
-      className="relative w-full h-2.5 rounded-full overflow-hidden shrink-0"
+      className="df-progress relative w-full rounded-full overflow-hidden shrink-0"
       style={{ background: 'var(--df-border)' }}
     >
       <div
@@ -123,7 +123,7 @@ export default function WorkHoursPanel({ date }: Props) {
 
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="df-work-hours-card rounded-xl overflow-hidden"
       style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
     >
       {/* Header */}

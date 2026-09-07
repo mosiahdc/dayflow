@@ -256,7 +256,7 @@ export default function TradeJournal() {
     <div className="flex flex-col gap-4">
       {/* ── Weekly block ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow p-4">
+        <div className="df-trade-card p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted mb-3">
             Weekly Block — updated every Monday
           </p>
@@ -284,7 +284,7 @@ export default function TradeJournal() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow p-4">
+        <div className="df-trade-card p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted mb-3">
             Today's session — {format(parseISO(today), 'MMM d, yyyy')}
           </p>
@@ -338,7 +338,7 @@ export default function TradeJournal() {
           {showDatePicker && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowDatePicker(false)} />
-              <div className="absolute left-0 top-10 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 p-3 min-w-[200px]">
+              <div className="df-popover absolute left-0 top-10 z-20 p-3 min-w-[200px]">
                 <p className="text-xs font-semibold text-brand-muted mb-2">Select date</p>
                 <input
                   type="date"
@@ -380,7 +380,7 @@ export default function TradeJournal() {
       </div>
 
       {/* ── Daily trade entry & compliance log ──────────────────────────── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden">
+      <div className="df-trade-card overflow-hidden">
         <div className="bg-brand-accent text-white px-4 py-2.5 flex justify-between items-center">
           <span className="font-semibold text-sm">Daily Trade Entry & Compliance Log</span>
           <span className="text-xs opacity-80">
@@ -422,7 +422,7 @@ export default function TradeJournal() {
       </div>
 
       {/* ── End-of-session assessment ────────────────────────────────────── */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden">
+      <div className="df-trade-card overflow-hidden">
         <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
           <p className="text-sm font-semibold dark:text-white">End-of-Session Assessment</p>
           <p className="text-xs text-brand-muted">
@@ -539,7 +539,7 @@ export default function TradeJournal() {
 
       {/* ── History ──────────────────────────────────────────────────────── */}
       {pastDays.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 shadow overflow-hidden">
+        <div className="df-trade-card overflow-hidden">
           <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
             <p className="text-sm font-semibold dark:text-white">Past sessions</p>
           </div>

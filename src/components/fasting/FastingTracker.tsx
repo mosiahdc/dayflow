@@ -144,7 +144,7 @@ export default function FastingTracker() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="df-card overflow-hidden" style={{ padding: 0 }}>
+    <div className="df-card df-fast-card overflow-hidden" style={{ padding: 0 }}>
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--df-border)' }}>
         <div className="flex items-center gap-2">
@@ -162,7 +162,7 @@ export default function FastingTracker() {
 
       {/* ── TIMER VIEW ── */}
       {!loading && (
-        <div className="p-6 flex flex-col items-center gap-4">
+        <div className="df-fast-body p-6 flex flex-col items-center gap-4">
           {/* Circular progress ring */}
           <div className="relative">
             <svg width="180" height="180" className="-rotate-90">
@@ -171,7 +171,7 @@ export default function FastingTracker() {
                 cy="90"
                 r={R}
                 fill="none"
-                stroke="#e5e7eb"
+                stroke="var(--df-surface3)"
                 strokeWidth="10"
                 className="dark:stroke-gray-700"
               />
@@ -180,7 +180,7 @@ export default function FastingTracker() {
                 cy="90"
                 r={R}
                 fill="none"
-                stroke={goalReached ? '#10B981' : '#6366f1'}
+                stroke={goalReached ? 'var(--df-green)' : 'var(--df-accent)'}
                 strokeWidth="10"
                 strokeLinecap="round"
                 strokeDasharray={C}
@@ -209,7 +209,7 @@ export default function FastingTracker() {
 
           {/* Active fast info */}
           {active && (
-            <div className="w-full bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex flex-col gap-2">
+            <div className="df-fast-info w-full rounded-xl p-3 flex flex-col gap-2">
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                 <span>Started</span>
                 <span className="font-medium dark:text-white">
@@ -272,12 +272,7 @@ export default function FastingTracker() {
                   <button
                     key={h}
                     onClick={() => setGoalHours(h)}
-                    className={`py-1.5 rounded-lg text-xs font-semibold transition-all
-                      ${
-                        goalHours === h
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-indigo-100'
-                      }`}
+                    className={`df-fast-goal ${goalHours === h ? 'is-active' : ''}`}
                   >
                     {h}h
                   </button>
@@ -288,7 +283,7 @@ export default function FastingTracker() {
 
           {/* Stop — edit end time */}
           {editingStop && (
-            <div className="w-full bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 flex flex-col gap-2">
+            <div className="df-fast-info w-full rounded-xl p-3 flex flex-col gap-2">
               <p className="text-xs text-gray-500 dark:text-gray-400">Adjust stop time</p>
               <div className="flex gap-2">
                 <input
@@ -319,14 +314,14 @@ export default function FastingTracker() {
               {!active ? (
                 <button
                   onClick={handleStart}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-3 font-semibold text-sm transition-colors"
+                  className="df-fast-action df-fast-action-start flex-1"
                 >
                   🚀 Start Fast
                 </button>
               ) : (
                 <button
                   onClick={handleStop}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-semibold text-sm transition-colors"
+                  className="df-fast-action df-fast-action-stop flex-1"
                 >
                   🛑 Stop Fast
                 </button>
@@ -353,7 +348,7 @@ export default function FastingTracker() {
                 const dur = differenceInSeconds(parseISO(s.endedAt!), parseISO(s.startedAt));
                 const pct = Math.min(100, Math.round((dur / (s.goalHours * 3600)) * 100));
                 return (
-                  <div key={s.id} className="px-4 py-3 flex items-center gap-3">
+                  <div key={s.id} className="df-fast-history-row px-4 py-3 flex items-center gap-3">
                     {/* Progress bar */}
                     <div className="w-10 h-10 shrink-0 relative">
                       <svg viewBox="0 0 40 40" className="-rotate-90 w-full h-full">
@@ -362,7 +357,7 @@ export default function FastingTracker() {
                           cy="20"
                           r="16"
                           fill="none"
-                          stroke="#e5e7eb"
+                          stroke="var(--df-surface3)"
                           strokeWidth="4"
                           className="dark:stroke-gray-600"
                         />
@@ -371,7 +366,7 @@ export default function FastingTracker() {
                           cy="20"
                           r="16"
                           fill="none"
-                          stroke={pct >= 100 ? '#10B981' : '#6366f1'}
+                          stroke={pct >= 100 ? 'var(--df-green)' : 'var(--df-accent)'}
                           strokeWidth="4"
                           strokeLinecap="round"
                           strokeDasharray={2 * Math.PI * 16}

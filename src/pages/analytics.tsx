@@ -1773,7 +1773,7 @@ export default function AnalyticsPage() {
   void weekEntries;
 
   return (
-    <div className="max-w-screen-xl mx-auto">
+    <div className="df-page df-analytics-page max-w-screen-xl mx-auto">
       
 
       {/* Main tabs */}

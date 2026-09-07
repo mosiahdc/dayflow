@@ -35,8 +35,8 @@ function SlotTaskPicker({
     CATEGORY_COLORS[task.category as keyof typeof CATEGORY_COLORS] ?? task.color ?? '#4F6EF7';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm flex flex-col max-h-[70vh]">
+    <div className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="df-modal-panel w-full max-w-sm flex flex-col max-h-[70vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b dark:border-gray-700 shrink-0">
           <span className="font-semibold text-sm dark:text-white">Add to this slot</span>

@@ -85,7 +85,7 @@ function SortableHabitRow({
     <div
       ref={setNodeRef}
       style={{ ...style, borderBottom: '1px solid var(--df-border)' }}
-      className={`min-w-[560px] transition-colors ${isDragging ? 'opacity-40 z-50' : ''}`}
+      className={`df-habit-row min-w-[560px] transition-colors ${isDragging ? 'opacity-40 z-50' : ''}`}
     >
       {/* Main row */}
       <div className="flex items-center gap-2 px-3 py-2">
@@ -131,7 +131,7 @@ function SortableHabitRow({
                     if (!isTarget) return;
                     onToggle(habit.id, date);
                   }}
-                  className="w-7 h-7 rounded-lg border-2 flex items-center justify-center text-xs font-bold transition-all"
+                  className="df-habit-check w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-all"
                   style={{
                     opacity: !isTarget ? 0.2 : 1,
                     cursor: !isTarget ? 'default' : 'pointer',
@@ -190,7 +190,7 @@ function SortableHabitRow({
         {/* Edit button */}
         <button
           onClick={() => onEdit(habit)}
-          className="text-sm shrink-0 transition-colors"
+          className="df-icon-control text-sm shrink-0 transition-colors"
           style={{ color: 'var(--df-muted)' }}
           title="Edit habit"
         >
@@ -200,7 +200,7 @@ function SortableHabitRow({
         {/* Delete */}
         <button
           onClick={() => onDelete(habit.id)}
-          className="text-sm shrink-0 transition-colors"
+          className="df-icon-control text-sm shrink-0 transition-colors"
           style={{ color: 'var(--df-border2)' }}
           title="Delete habit"
         >
@@ -336,7 +336,7 @@ export default function HabitTracker() {
 
   return (
     <div
-      className="rounded-xl overflow-hidden"
+      className="df-habit-board rounded-xl overflow-hidden"
       style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
     >
       {/* Header */}

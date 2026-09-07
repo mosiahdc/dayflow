@@ -125,7 +125,7 @@ export default function WeekView({ weekDates, scheduledTasks, fetchByWeek }: Pro
   }, [scheduledTasks, weekDates]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+    <div className="df-planner-board rounded-xl overflow-hidden">
       {/* Day headers */}
       <div
         className="grid sticky top-0 z-20 bg-white dark:bg-gray-800 border-b dark:border-gray-700"

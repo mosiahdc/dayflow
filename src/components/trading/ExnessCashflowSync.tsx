@@ -88,7 +88,7 @@ export default function ExnessCashflowSync({ onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
       onClick={(event) => event.target === event.currentTarget && onClose()}
     >
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-800">
+      <div className="df-modal-panel flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden">
         <div className="flex items-start justify-between border-b px-5 py-4 dark:border-gray-700">
           <div>
             <h3 className="text-base font-bold dark:text-white">Sync Exness cash flow</h3>

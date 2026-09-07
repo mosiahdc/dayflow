@@ -48,7 +48,7 @@ export default function MonthView({ monthDate, scheduledTasks }: Props) {
   }, [scheduledTasks]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+    <div className="df-planner-board rounded-xl overflow-hidden">
       {/* Day headers */}
       <div className="grid grid-cols-7 border-b dark:border-gray-700">
         {DAY_HEADERS.map((d) => (

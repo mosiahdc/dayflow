@@ -164,7 +164,7 @@ export default function TradeCalendar({ monthDate, trades }: Props) {
       </div>
 
       {/* Calendar grid */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden">
+      <div className="df-trade-card overflow-hidden">
         {/* Day headers */}
         <div className="grid grid-cols-7 border-b dark:border-gray-700">
           {DAY_HEADERS.map((d) => (

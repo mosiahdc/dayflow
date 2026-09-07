@@ -35,7 +35,7 @@ export default function TradeOrdersDropdown({ trade }: Props) {
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+      <div className="df-table-wrap overflow-x-auto">
         <div className="min-w-[900px]">
           <div
             className="grid items-center px-2.5 py-1.5 bg-gray-50 dark:bg-gray-700/50 text-[9px] uppercase tracking-wide font-semibold text-brand-muted"

@@ -60,30 +60,30 @@ const s: Record<string, React.CSSProperties> = {
   weekLabel: { fontSize: 13, color: 'var(--df-muted)', marginTop: 2 },
   navRow: { display: 'flex', gap: 8, alignItems: 'center' },
   navBtn: {
-    background: 'var(--df-surface2)', border: '1px solid #2d2d4e',
+    background: 'var(--df-surface2)', border: '1px solid var(--df-border)',
     borderRadius: 8, padding: '6px 12px', color: 'var(--df-muted)', cursor: 'pointer', fontSize: 13,
   },
   card: {
-    background: 'var(--df-surface)', border: '1px solid #2d2d4e',
+    background: 'var(--df-surface)', border: '1px solid var(--df-border)',
     borderRadius: 12, padding: '16px', marginBottom: 14,
   },
   cardTitle: { fontSize: 13, fontWeight: 700, color: 'var(--df-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 },
   statRow: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 },
   stat: {
     flex: 1, minWidth: 100,
-    background: 'var(--df-surface2)', border: '1px solid #2d2d4e',
+    background: 'var(--df-surface2)', border: '1px solid var(--df-border)',
     borderRadius: 10, padding: '12px 14px',
   },
   statNum: { fontSize: 24, fontWeight: 700, color: 'var(--df-accent)' },
   statLabel: { fontSize: 11, color: 'var(--df-muted)', marginTop: 2 },
   label: { fontSize: 12, color: 'var(--df-muted)', fontWeight: 500, marginBottom: 6, display: 'block' },
   input: {
-    width: '100%', background: 'var(--df-bg-soft)', border: '1px solid #2d2d4e',
+    width: '100%', background: 'var(--df-bg-soft)', border: '1px solid var(--df-border)',
     borderRadius: 8, padding: '9px 12px', fontSize: 13, color: 'var(--df-text)', outline: 'none',
     boxSizing: 'border-box',
   },
   textarea: {
-    width: '100%', background: 'var(--df-bg-soft)', border: '1px solid #2d2d4e',
+    width: '100%', background: 'var(--df-bg-soft)', border: '1px solid var(--df-border)',
     borderRadius: 8, padding: '9px 12px', fontSize: 13, color: 'var(--df-text)', outline: 'none',
     resize: 'vertical', minHeight: 80, boxSizing: 'border-box',
   },
@@ -99,11 +99,11 @@ const s: Record<string, React.CSSProperties> = {
   },
   savedBadge: {
     background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
-    color: '#10B981', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 500,
+    color: 'var(--df-green)', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 500,
   },
   bookItem: {
     display: 'flex', gap: 10, alignItems: 'center',
-    padding: '8px 10px', background: 'var(--df-surface2)', border: '1px solid #2d2d4e',
+    padding: '8px 10px', background: 'var(--df-surface2)', border: '1px solid var(--df-border)',
     borderRadius: 8, marginBottom: 6,
   },
 };
@@ -228,7 +228,7 @@ export default function WeeklyReview() {
     setReview(r => ({ ...r, [field]: val }));
   }
 
-  const priorityColors = ['var(--df-accent)', '#10B981', '#F59E0B'];
+  const priorityColors = ['var(--df-accent)', 'var(--df-green)', 'var(--df-amber)'];
   const nextWeekLabel = `${format(weekBase, 'MMM d')} – ${format(endOfWeek(weekBase, { weekStartsOn: 1 }), 'MMM d, yyyy')}`;
   const prevLabel = `${format(prevWeekStart, 'MMM d')} – ${format(prevWeekEnd, 'MMM d')}`;
 
@@ -271,7 +271,7 @@ export default function WeeklyReview() {
             </div>
           </div>
           <div style={s.stat}>
-            <div style={{ ...s.statNum, color: '#10B981' }}>
+            <div style={{ ...s.statNum, color: 'var(--df-green)' }}>
               {habitStats.pct !== null ? `${habitStats.pct}%` : '—'}
             </div>
             <div style={s.statLabel}>
@@ -279,7 +279,7 @@ export default function WeeklyReview() {
             </div>
           </div>
           <div style={s.stat}>
-            <div style={{ ...s.statNum, color: '#F59E0B' }}>{booksLastWeek.length}</div>
+            <div style={{ ...s.statNum, color: 'var(--df-amber)' }}>{booksLastWeek.length}</div>
             <div style={s.statLabel}>Books finished</div>
           </div>
         </div>

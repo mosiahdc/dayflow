@@ -20,25 +20,36 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
   return (
     <button
       onClick={() => onChange(!enabled)}
-      className={`relative w-11 h-6 rounded-full transition-colors shrink-0
-        ${enabled ? 'bg-brand-accent' : 'bg-gray-300 dark:bg-gray-600'}`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform
-          ${enabled ? 'translate-x-5' : 'translate-x-0'}`}
-      />
-    </button>
+      className={`df-toggle ${enabled ? 'is-on' : ''}`}
+      aria-pressed={enabled}
+      aria-label={enabled ? 'Disable setting' : 'Enable setting'}
+    />
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  subtitle,
+  badge,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border shadow overflow-hidden mb-4">
-      <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
-        <h2 className="text-sm font-semibold dark:text-white">{title}</h2>
+    <section className="df-settings-section">
+      <div className="df-settings-section-head">
+        <div>
+          <div className="df-kicker">SETTINGS</div>
+          <h2>{title}</h2>
+          <p>{subtitle}</p>
+        </div>
+        {badge && <span className="df-chip is-blue">{badge}</span>}
       </div>
-      <div className="divide-y dark:divide-gray-700">{children}</div>
-    </div>
+      {children}
+    </section>
   );
 }
 
@@ -46,18 +57,23 @@ function Row({
   label,
   description,
   children,
+  below,
 }: {
   label: string;
   description?: string;
   children: React.ReactNode;
+  below?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3">
-      <div className="min-w-0">
-        <p className="text-sm font-medium dark:text-white">{label}</p>
-        {description && <p className="text-xs text-brand-muted mt-0.5">{description}</p>}
+    <div>
+      <div className="df-settings-row">
+        <div>
+          <h3>{label}</h3>
+          {description && <p>{description}</p>}
+          {below}
+        </div>
+        <div className="df-settings-actions">{children}</div>
       </div>
-      <div className="shrink-0">{children}</div>
     </div>
   );
 }
@@ -77,17 +93,39 @@ export default function SettingsPage() {
 
   const { initialBalance, setInitialBalance, fetchSettings } = useTradeSettingsStore();
 
+  const [balanceInput, setBalanceInput] = useState('');
+  const [balanceSaved, setBalanceSaved] = useState(false);
+  const [balanceError, setBalanceError] = useState('');
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+
   useEffect(() => {
     fetchSettings();
   }, [fetchSettings]);
 
-  const [balanceInput, setBalanceInput] = useState('');
-  const [balanceSaved, setBalanceSaved] = useState(false);
-  const [balanceError, setBalanceError] = useState('');
-
   useEffect(() => {
     setBalanceInput(String(initialBalance || ''));
   }, [initialBalance]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const supported = Capacitor.isNativePlatform() ? await isBiometricAvailable() : false;
+        const enabled = supported ? await isBiometricLockEnabled() : false;
+        if (!mounted) return;
+        setBiometricSupported(Boolean(supported));
+        setBiometricEnabled(Boolean(enabled));
+      } catch {
+        if (!mounted) return;
+        setBiometricSupported(false);
+        setBiometricEnabled(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSaveBalance = async () => {
     const val = parseFloat(balanceInput);
@@ -103,65 +141,78 @@ export default function SettingsPage() {
     }
   };
 
+  const handleToggleBiometric = async (next: boolean) => {
+    try {
+      await setBiometricLockEnabled(next);
+      setBiometricEnabled(next);
+    } catch {
+      setBiometricEnabled(false);
+    }
+  };
+
   return (
     <div className="df-page df-settings-page">
-      
+      <div className="df-settings-hero">
+        <section className="df-settings-intro">
+          <span className="df-kicker">CONTROL CENTER</span>
+          <h2>Tune the app once, then let the system support your routine.</h2>
+          <p>
+            Manage reminders, trading defaults, calendar syncing, and security in one place.
+            All settings save on this device automatically unless a feature says otherwise.
+          </p>
+        </section>
 
-      {/* ── Trading ── */}
-      <Section title="📈 Trading">
+        <section className="df-settings-mini-card">
+          <span className="df-kicker">AT A GLANCE</span>
+          <h3>Current setup</h3>
+          <div className="df-inline-actions" style={{ marginTop: 10 }}>
+            <span className={`df-chip ${taskRemindersEnabled ? 'is-green' : ''}`}>Task reminders {taskRemindersEnabled ? 'on' : 'off'}</span>
+            <span className={`df-chip ${dailyPlanningEnabled ? 'is-blue' : ''}`}>Planning {dailyPlanningEnabled ? dailyPlanningTime : 'off'}</span>
+            <span className={`df-chip ${habitRemindersEnabled ? 'is-amber' : ''}`}>Habits {habitRemindersEnabled ? habitReminderTime : 'off'}</span>
+            <span className={`df-chip ${morningReminderEnabled ? 'is-purple' : ''}`}>Morning {morningReminderEnabled ? morningReminderTime : 'off'}</span>
+            {biometricSupported && <span className={`df-chip ${biometricEnabled ? 'is-green' : ''}`}>Biometric {biometricEnabled ? 'enabled' : 'disabled'}</span>}
+          </div>
+        </section>
+      </div>
+
+      <Section title="Trading" subtitle="Account starting values and trading-related preferences." badge="Project Discipline">
         <Row
           label="Initial Balance"
           description="Your starting account balance for Project Discipline. Exness deposits and withdrawals are added on top automatically."
+          below={balanceError ? <p style={{ color: 'var(--df-red)', marginTop: 8 }}>{balanceError}</p> : undefined}
         >
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={balanceInput}
-              onChange={(e) => {
-                setBalanceInput(e.target.value);
-                setBalanceSaved(false);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && void handleSaveBalance()}
-              placeholder="0.00"
-              className="w-32 text-sm border rounded px-2 py-1.5 text-right dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
-            />
-            <button
-              onClick={() => void handleSaveBalance()}
-              className={`text-xs px-3 py-1.5 rounded font-semibold transition-all ${
-                balanceSaved
-                  ? 'bg-green-500 text-white'
-                  : 'bg-brand-accent text-white hover:opacity-90'
-              }`}
-            >
-              {balanceSaved ? '✓ Saved' : 'Save'}
-            </button>
-          </div>
-          {balanceError && <p className="text-[10px] text-red-500 mt-1">{balanceError}</p>}
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={balanceInput}
+            onChange={(e) => {
+              setBalanceInput(e.target.value);
+              setBalanceSaved(false);
+            }}
+            onKeyDown={(e) => e.key === 'Enter' && void handleSaveBalance()}
+            placeholder="0.00"
+            className="df-settings-input"
+          />
+          <button
+            onClick={() => void handleSaveBalance()}
+            className="df-btn df-btn-primary"
+            style={{ minWidth: 96 }}
+          >
+            {balanceSaved ? 'Saved ✓' : 'Save'}
+          </button>
         </Row>
       </Section>
 
-      {/* ── Task Reminders ── */}
-      <Section title="🔔 Task Reminders">
-        <Row
-          label="Enable task reminders"
-          description="Get notified before a scheduled task starts"
-        >
-          <Toggle
-            enabled={taskRemindersEnabled}
-            onChange={(v) => update({ taskRemindersEnabled: v })}
-          />
+      <Section title="Task Reminders" subtitle="Control alerts before scheduled tasks start." badge={taskRemindersEnabled ? 'Enabled' : 'Disabled'}>
+        <Row label="Enable task reminders" description="Get notified before a scheduled task starts.">
+          <Toggle enabled={taskRemindersEnabled} onChange={(v) => update({ taskRemindersEnabled: v })} />
         </Row>
-
         {taskRemindersEnabled && (
-          <Row label="Remind me" description="How early to send the reminder">
+          <Row label="Reminder lead time" description="How early to send the reminder.">
             <select
               value={reminderMinutes}
-              onChange={(e) =>
-                update({ reminderMinutes: Number(e.target.value) as 5 | 10 | 15 | 30 })
-              }
-              className="text-sm border rounded px-2 py-1.5 dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
+              onChange={(e) => update({ reminderMinutes: Number(e.target.value) as 5 | 10 | 15 | 30 })}
             >
               {REMINDER_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -173,78 +224,48 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      {/* ── Daily Planning Reminder ── */}
-      <Section title="📅 Daily Planning Reminder">
-        <Row label="Enable daily reminder" description="Get a notification to plan your day">
-          <Toggle
-            enabled={dailyPlanningEnabled}
-            onChange={(v) => update({ dailyPlanningEnabled: v })}
-          />
+      <Section title="Planning Routine" subtitle="Keep your day opening and review routine consistent.">
+        <Row label="Daily planning reminder" description="Get a reminder to plan the day ahead.">
+          <Toggle enabled={dailyPlanningEnabled} onChange={(v) => update({ dailyPlanningEnabled: v })} />
         </Row>
-
         {dailyPlanningEnabled && (
-          <Row label="Reminder time" description="What time to send the planning reminder">
-            <input
-              type="time"
-              value={dailyPlanningTime}
-              onChange={(e) => update({ dailyPlanningTime: e.target.value })}
-              className="text-sm border rounded px-2 py-1.5 dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
-            />
+          <Row label="Planning reminder time" description="When to prompt you to plan.">
+            <input type="time" value={dailyPlanningTime} onChange={(e) => update({ dailyPlanningTime: e.target.value })} />
           </Row>
         )}
-      </Section>
 
-      {/* ── Morning Reminder ── */}
-      <Section title="🌅 Morning Reminder">
-        <Row
-          label="Enable morning reminder"
-          description="Get notified to check your planned tasks for the day"
-        >
-          <Toggle
-            enabled={morningReminderEnabled}
-            onChange={(v) => update({ morningReminderEnabled: v })}
-          />
+        <Row label="Morning reminder" description="A quick reminder to check your planned tasks for the day.">
+          <Toggle enabled={morningReminderEnabled} onChange={(v) => update({ morningReminderEnabled: v })} />
         </Row>
-
         {morningReminderEnabled && (
-          <Row label="Reminder time" description="What time to send the morning reminder">
-            <input
-              type="time"
-              value={morningReminderTime}
-              onChange={(e) => update({ morningReminderTime: e.target.value })}
-              className="text-sm border rounded px-2 py-1.5 dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
-            />
+          <Row label="Morning reminder time" description="Choose the best time to receive it.">
+            <input type="time" value={morningReminderTime} onChange={(e) => update({ morningReminderTime: e.target.value })} />
           </Row>
         )}
       </Section>
 
-      {/* ── Habit Reminders ── */}
-      <Section title="✅ Habit Reminders">
-        <Row label="Enable habit reminders" description="Daily reminder to check off your habits">
-          <Toggle
-            enabled={habitRemindersEnabled}
-            onChange={(v) => update({ habitRemindersEnabled: v })}
-          />
+      <Section title="Habits" subtitle="Keep daily habit nudges lightweight but consistent." badge={habitRemindersEnabled ? 'Reminder active' : 'Reminder off'}>
+        <Row label="Enable habit reminders" description="Daily reminder to check off your habits.">
+          <Toggle enabled={habitRemindersEnabled} onChange={(v) => update({ habitRemindersEnabled: v })} />
         </Row>
-
         {habitRemindersEnabled && (
-          <Row label="Reminder time" description="What time to send the habit reminder">
-            <input
-              type="time"
-              value={habitReminderTime}
-              onChange={(e) => update({ habitReminderTime: e.target.value })}
-              className="text-sm border rounded px-2 py-1.5 dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
-            />
+          <Row label="Habit reminder time" description="When you want the reminder to appear.">
+            <input type="time" value={habitReminderTime} onChange={(e) => update({ habitReminderTime: e.target.value })} />
           </Row>
         )}
       </Section>
 
-      {/* ── Calendar Sync ── */}
+      {biometricSupported && (
+        <Section title="Security" subtitle="Protect access to DayFlow on supported native devices.">
+          <Row label="Biometric lock" description="Require biometrics when reopening the app.">
+            <Toggle enabled={biometricEnabled} onChange={(v) => void handleToggleBiometric(v)} />
+          </Row>
+        </Section>
+      )}
+
       <CalendarSync />
 
-      <p className="text-xs text-brand-muted text-center mt-2">
-        Settings are saved automatically on this device.
-      </p>
+      <p className="df-settings-footer">Settings are saved automatically on this device.</p>
     </div>
   );
 }

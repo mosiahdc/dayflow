@@ -87,8 +87,8 @@ export default function HabitForm({ onClose, editing }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <div className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="df-modal-panel df-habit-form p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center gap-2 mb-4">
           {isEditing && (
@@ -152,7 +152,7 @@ export default function HabitForm({ onClose, editing }: Props) {
         </div>
 
         {/* ── Reminder ── */}
-        <div className="mb-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3">
+        <div className="df-subcard mb-4 rounded-xl p-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-brand-muted">🔔 Reminder</p>
             {reminderTime && (

@@ -280,7 +280,7 @@ export default function CalendarSync() {
   if (loading) return null;
 
   return (
-    <div style={s.section}>
+    <div className="df-calendar-sync" style={s.section}>
       <div style={s.header}>📅 Google Calendar Sync</div>
       <div style={s.body}>
         {!connected ? (

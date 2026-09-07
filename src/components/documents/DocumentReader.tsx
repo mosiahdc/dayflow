@@ -653,16 +653,17 @@ export default function DocumentReader({ doc, onClose, initialPage, initialSpine
   const progress = totalPages > 0 ? Math.round((currentPage / totalPages) * 100) : 0;
 
   const btn: React.CSSProperties = {
-    background: 'var(--df-border)', border: 'none', color: 'var(--df-muted)',
-    borderRadius: 6, padding: '4px 9px', fontSize: 11, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
+    background: 'var(--df-surface)', border: '1px solid var(--df-border)', color: 'var(--df-text-soft)',
+    borderRadius: 10, minHeight: 34, padding: '0 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, whiteSpace: 'nowrap',
+    boxShadow: '0 4px 12px rgba(28,47,76,.05)',
   };
 
   // Filter out page notes from visible highlights
   const visibleHighlights = highlights.filter(h => h.text !== '__page_note__');
 
   return (
-    <div className="flex h-full" style={{ background: 'var(--df-bg)' }}>
+    <div className="df-reader-shell flex h-full" style={{ background: 'var(--df-bg)' }}>
 
       {/* Left sidebar */}
       {sidebarOpen && (
@@ -687,7 +688,7 @@ export default function DocumentReader({ doc, onClose, initialPage, initialSpine
       <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
 
         {/* Toolbar */}
-        <div className="flex items-center gap-1.5 px-3 py-2 shrink-0 flex-wrap"
+        <div className="df-reader-toolbar flex items-center gap-1.5 px-3 py-2 shrink-0 flex-wrap"
           style={{ background: 'var(--df-surface2)', borderBottom: '1px solid var(--df-border)' }}>
 
           {!sidebarOpen && (
@@ -843,12 +844,12 @@ export default function DocumentReader({ doc, onClose, initialPage, initialSpine
         </div>
 
         {/* Bottom progress bar */}
-        <div className="flex items-center gap-2 px-3 py-2 shrink-0"
+        <div className="df-reader-progress flex items-center gap-2 px-3 py-2 shrink-0"
           style={{ background: 'var(--df-surface2)', borderTop: '1px solid var(--df-border)' }}>
           <span className="text-[10px] shrink-0" style={{ color: 'var(--df-muted)' }}>1</span>
-          <div className="flex-1 h-0.5 rounded-full" style={{ background: 'var(--df-border)' }}>
+          <div className="df-progress-sm flex-1" style={{ background: 'var(--df-border)' }}>
             <div className="h-full rounded-full transition-all"
-              style={{ width: `${progress}%`, background: 'var(--df-accent)' }} />
+              style={{ width: `${progress}%`, background: 'linear-gradient(90deg, var(--df-accent), var(--df-purple))' }} />
           </div>
           <span className="text-[10px] shrink-0" style={{ color: 'var(--df-muted)' }}>
             {totalPages || '…'}

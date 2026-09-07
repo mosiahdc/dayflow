@@ -66,7 +66,7 @@ return (
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-8 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-xl border dark:border-gray-700 w-52 overflow-hidden">
+          <div className="df-popover absolute left-0 top-8 z-20 w-52 overflow-hidden">
             <p className="text-xs text-brand-muted px-3 py-2 border-b dark:border-gray-700">
               {dayTasks.length} task{dayTasks.length > 1 ? 's' : ''} on {date}
             </p>

@@ -5,72 +5,57 @@ export default function DateNav() {
   const { selectedDate, setDate } = useUIStore();
   const date = new Date(selectedDate);
 
-  const btnBase: React.CSSProperties = {
-    background: 'var(--df-surface2)',
+  const iconBtn: React.CSSProperties = {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     border: '1px solid var(--df-border)',
-    color: 'var(--df-muted)',
-    borderRadius: '8px',
+    background: 'var(--df-surface)',
+    color: 'var(--df-text-soft)',
+    display: 'grid',
+    placeItems: 'center',
+    fontSize: 16,
+    boxShadow: 'var(--df-shadow-sm)',
     cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'border-color .15s, color .15s',
   };
 
   return (
-    <div className="flex items-center gap-2 w-full">
-      <button
-        onClick={() => setDate(format(subDays(date, 1), 'yyyy-MM-dd'))}
-        style={{ ...btnBase, width: 36, height: 36, fontSize: 16 }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--df-accent)';
-          (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--df-border)';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--df-muted)';
-        }}
-      >
-        ←
-      </button>
+    <div className="df-page-section" style={{ padding: 10 }}>
+      <div className="flex items-center gap-2 w-full">
+        <button
+          onClick={() => setDate(format(subDays(date, 1), 'yyyy-MM-dd'))}
+          style={iconBtn}
+          aria-label="Previous day"
+        >
+          ←
+        </button>
 
-      <button
-        onClick={() => setDate(format(new Date(), 'yyyy-MM-dd'))}
-        style={{
-          ...btnBase,
-          height: 36,
-          padding: '0 14px',
-          fontSize: 12,
-          fontWeight: 600,
-          background: isToday(date) ? 'var(--df-accent)' : 'var(--df-surface2)',
-          borderColor: isToday(date) ? 'var(--df-accent)' : 'var(--df-border)',
-          color: isToday(date) ? '#fff' : 'var(--df-muted)',
-        }}
-      >
-        Today
-      </button>
+        <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+          <div className="df-kicker">DATE</div>
+          <div style={{ marginTop: 5, fontSize: 15, fontWeight: 800, letterSpacing: '-.02em', color: 'var(--df-text)' }}>
+            {format(date, 'EEEE, MMMM d')}
+          </div>
+          <div style={{ marginTop: 3, fontSize: 11, color: 'var(--df-muted)' }}>
+            {format(date, 'yyyy')}
+          </div>
+        </div>
 
-      <span
-        className="flex-1 text-center text-sm font-semibold truncate"
-        style={{ color: 'var(--df-text)' }}
-      >
-        {format(date, 'EEE, MMM d yyyy')}
-      </span>
+        <button
+          onClick={() => setDate(format(new Date(), 'yyyy-MM-dd'))}
+          className="df-pill is-blue"
+          style={{ minWidth: 72, justifyContent: 'center', height: 38, boxShadow: 'var(--df-shadow-sm)' }}
+        >
+          {isToday(date) ? 'Today ✓' : 'Go to today'}
+        </button>
 
-      <button
-        onClick={() => setDate(format(addDays(date, 1), 'yyyy-MM-dd'))}
-        style={{ ...btnBase, width: 36, height: 36, fontSize: 16 }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--df-accent)';
-          (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--df-border)';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--df-muted)';
-        }}
-      >
-        →
-      </button>
+        <button
+          onClick={() => setDate(format(addDays(date, 1), 'yyyy-MM-dd'))}
+          style={iconBtn}
+          aria-label="Next day"
+        >
+          →
+        </button>
+      </div>
     </div>
   );
 }
