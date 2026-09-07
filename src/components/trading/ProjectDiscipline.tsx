@@ -60,6 +60,7 @@ const MARGIN_DIVISORS: Record<MarginMode, number> = {
 };
 
 type TxType = 'deposit' | 'withdrawal' | 'funding_fee' | 'null_compensation';
+type ManualTxType = Exclude<TxType, 'null_compensation'>;
 const TX_CONFIG: Record<TxType, { label: string; colorClass: string; badgeClass: string }> = {
   deposit: {
     label: 'Deposit',
@@ -321,7 +322,7 @@ export default function ProjectDiscipline({ trades }: Props) {
   const [copied, setCopied] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
-  const [txModal, setTxModal] = useState<TxType | null>(null);
+  const [txModal, setTxModal] = useState<ManualTxType | null>(null);
   const [txAmount, setTxAmount] = useState('');
   const [txNote, setTxNote] = useState('');
   const [txSaving, setTxSaving] = useState(false);
