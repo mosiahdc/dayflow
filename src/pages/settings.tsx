@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNotificationStore } from '@/store/notificationStore';
 import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import CalendarSync from '@/components/CalendarSync';
@@ -84,14 +84,13 @@ export default function SettingsPage() {
   const [balanceInput, setBalanceInput] = useState('');
   const [balanceSaved, setBalanceSaved] = useState(false);
 
-  // Sync input when store loads
   useEffect(() => {
-    if (initialBalance > 0) setBalanceInput(String(initialBalance));
+    setBalanceInput(String(initialBalance || ''));
   }, [initialBalance]);
 
   const handleSaveBalance = async () => {
     const val = parseFloat(balanceInput);
-    if (isNaN(val) || val < 0) return;
+    if (Number.isNaN(val) || val < 0) return;
     await setInitialBalance(val);
     setBalanceSaved(true);
     setTimeout(() => setBalanceSaved(false), 2000);
@@ -105,7 +104,7 @@ export default function SettingsPage() {
       <Section title="📈 Trading">
         <Row
           label="Initial Balance"
-          description="Your starting capital for the Project Discipline tracker (USDT)"
+          description="Your starting account balance for Project Discipline. Exness deposits and withdrawals are added on top automatically."
         >
           <div className="flex items-center gap-2">
             <input
@@ -117,19 +116,17 @@ export default function SettingsPage() {
                 setBalanceInput(e.target.value);
                 setBalanceSaved(false);
               }}
-              onKeyDown={(e) => e.key === 'Enter' && handleSaveBalance()}
+              onKeyDown={(e) => e.key === 'Enter' && void handleSaveBalance()}
               placeholder="0.00"
-              className="w-32 text-sm border rounded px-2 py-1.5 text-right
-                dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
+              className="w-32 text-sm border rounded px-2 py-1.5 text-right dark:bg-gray-700 dark:text-white dark:border-gray-600 bg-white"
             />
             <button
-              onClick={handleSaveBalance}
-              className={`text-xs px-3 py-1.5 rounded font-semibold transition-all
-                ${
-                  balanceSaved
-                    ? 'bg-green-500 text-white'
-                    : 'bg-brand-accent text-white hover:opacity-90'
-                }`}
+              onClick={() => void handleSaveBalance()}
+              className={`text-xs px-3 py-1.5 rounded font-semibold transition-all ${
+                balanceSaved
+                  ? 'bg-green-500 text-white'
+                  : 'bg-brand-accent text-white hover:opacity-90'
+              }`}
             >
               {balanceSaved ? '✓ Saved' : 'Save'}
             </button>

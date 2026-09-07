@@ -4,6 +4,7 @@ import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
 import TradeOrdersDropdown from './TradeOrdersDropdown';
+import ExnessCashflowSync from './ExnessCashflowSync';
 
 const PROJECT_START = '2026-08-01 00:00:00';
 
@@ -296,6 +297,7 @@ export default function ProjectDiscipline({ trades }: Props) {
   const [txNote, setTxNote] = useState('');
   const [txSaving, setTxSaving] = useState(false);
   const [showTxHistory, setShowTxHistory] = useState(false);
+  const [showExnessSync, setShowExnessSync] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -411,43 +413,23 @@ export default function ProjectDiscipline({ trades }: Props) {
           >
             {balance >= 0 ? '' : '-'}
             {Math.abs(balance).toFixed(4)}
-            <span className="text-xs font-normal text-brand-muted ml-1">USDT</span>
+            <span className="text-xs font-normal text-brand-muted ml-1">USD</span>
           </p>
           <p className="text-[10px] text-brand-muted leading-relaxed">
-            Initial {initialBalance.toFixed(2)}
-            {txNet !== 0 && (
-              <>
-                {' '}
-                · Tx {txNet >= 0 ? '+' : ''}
-                {txNet.toFixed(4)}
-              </>
-            )}{' '}
-            · PNL {projectPnl >= 0 ? '+' : ''}
+            {initialBalance !== 0 && <>Base {initialBalance.toFixed(2)} · </>}
+            Cash flow {txNet >= 0 ? '+' : ''}
+            {txNet.toFixed(4)} · PNL {projectPnl >= 0 ? '+' : ''}
             {projectPnl.toFixed(4)}
           </p>
-          {initialBalance === 0 && (
-            <p className="text-[10px] text-amber-500">Set initial balance in ⚙️ Settings</p>
-          )}
+          <p className="text-[10px] text-brand-muted">
+            Initial balance + Exness deposits/withdrawals + project PNL. Transfers are ignored.
+          </p>
           <div className="flex gap-1 mt-1.5 flex-wrap">
             <button
-              onClick={() => {
-                setTxModal('deposit');
-                setTxAmount('');
-                setTxNote('');
-              }}
-              className="flex-1 text-[11px] font-semibold py-1 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors"
+              onClick={() => setShowExnessSync(true)}
+              className="flex-1 text-[11px] font-semibold py-1 rounded-lg bg-brand-accent text-white hover:opacity-90 transition-colors"
             >
-              + Deposit
-            </button>
-            <button
-              onClick={() => {
-                setTxModal('withdrawal');
-                setTxAmount('');
-                setTxNote('');
-              }}
-              className="flex-1 text-[11px] font-semibold py-1 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
-            >
-              − Withdraw
+              ↻ Sync Exness
             </button>
             <button
               onClick={() => {
@@ -455,7 +437,8 @@ export default function ProjectDiscipline({ trades }: Props) {
                 setTxAmount('');
                 setTxNote('');
               }}
-              className="flex-1 text-[11px] font-semibold py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+              className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+              title="Add a funding fee manually"
             >
               ⚡ Fee
             </button>
@@ -528,7 +511,7 @@ export default function ProjectDiscipline({ trades }: Props) {
             <p className="text-xl font-bold text-brand-accent flex-1 truncate">
               {positionMargin > 0 ? positionMargin.toFixed(4) : '—'}
               {positionMargin > 0 && (
-                <span className="text-xs font-normal text-brand-muted ml-1">USDT</span>
+                <span className="text-xs font-normal text-brand-muted ml-1">USD</span>
               )}
             </p>
             <button
@@ -597,6 +580,8 @@ export default function ProjectDiscipline({ trades }: Props) {
         </div>
       )}
 
+      {showExnessSync && <ExnessCashflowSync onClose={() => setShowExnessSync(false)} />}
+
       {/* ── Transaction modal ──────────────────────────────────────────────── */}
       {txModal && (
         <div
@@ -611,7 +596,7 @@ export default function ProjectDiscipline({ trades }: Props) {
               </p>
             )}
             <div>
-              <label className="text-xs text-brand-muted mb-1 block">Amount (USDT)</label>
+              <label className="text-xs text-brand-muted mb-1 block">Amount (USD)</label>
               <input
                 autoFocus
                 type="number"
@@ -831,7 +816,7 @@ export default function ProjectDiscipline({ trades }: Props) {
                   className={`font-bold ${visiblePnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
                 >
                   {visiblePnl >= 0 ? '+' : ''}
-                  {visiblePnl.toFixed(4)} USDT
+                  {visiblePnl.toFixed(4)} USD
                 </span>
               </span>
               <span>

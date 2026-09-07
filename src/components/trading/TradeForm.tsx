@@ -61,7 +61,7 @@ export default function TradeForm({ onClose }: Props) {
           <h2 className="font-bold text-lg mb-4 dark:text-white">Add Trade</h2>
 
           <label className={labelCls}>Futures Symbol</label>
-          <input className={`${inputCls} mb-3`} placeholder="e.g. SOLUSDT" value={futures} onChange={(e) => setFutures(e.target.value)} />
+          <input className={`${inputCls} mb-3`} placeholder="e.g. XAUUSD" value={futures} onChange={(e) => setFutures(e.target.value)} />
 
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
@@ -107,12 +107,12 @@ export default function TradeForm({ onClose }: Props) {
               <input type="number" className={inputCls} placeholder="1" value={closingQty} onChange={(e) => setClosingQty(e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>Trading Fee (USDT)</label>
+              <label className={labelCls}>Trading Fee (USD)</label>
               <input type="number" className={inputCls} placeholder="0" value={tradingFee} onChange={(e) => setTradingFee(e.target.value)} />
             </div>
           </div>
 
-          <label className={labelCls}>Realized PNL (USDT) *</label>
+          <label className={labelCls}>Realized PNL (USD) *</label>
           <input type="number" step="0.001" className={`${inputCls} mb-3`} placeholder="e.g. 0.038 or -0.044" value={realizedPnl} onChange={(e) => setRealizedPnl(e.target.value)} />
 
           <label className={labelCls}>Margin Mode</label>

@@ -140,7 +140,7 @@ export default function TradeCalendar({ monthDate, trades }: Props) {
         <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-3 text-center">
           <p className="text-xs text-brand-muted mb-1">Month PNL</p>
           <p className={`text-lg font-bold ${monthlySummary.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-            {monthlySummary.pnl >= 0 ? '+' : ''}{monthlySummary.pnl.toFixed(3)} USDT
+            {monthlySummary.pnl >= 0 ? '+' : ''}{monthlySummary.pnl.toFixed(3)} USD
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl border shadow p-3 text-center">
