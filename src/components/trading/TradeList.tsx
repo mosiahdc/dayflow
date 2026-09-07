@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { useTradeStore, parseExnessRow } from '@/store/tradeStore';
 import TradeForm from './TradeForm';
+import TradeOrdersDropdown from './TradeOrdersDropdown';
 import type { Trade } from '@/store/tradeStore';
 
 // Exness exports trade history as CSV. Parse it locally so the importer works
@@ -126,6 +127,7 @@ export default function TradeList({ trades }: Props) {
   const [uploadMsg, setUploadMsg] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +157,7 @@ export default function TradeList({ trades }: Props) {
       });
       await fetchTrades();
       setUploadMsg(
-        `✅ Imported ${valid.length} Exness order${valid.length > 1 ? 's' : ''}. Same-entry orders are consolidated automatically.`
+        `✅ Imported ${valid.length} Exness order${valid.length > 1 ? 's' : ''}. Orders in the same opening-time batch are consolidated automatically.`
       );
     } catch (err) {
       console.error(err);
@@ -216,7 +218,7 @@ export default function TradeList({ trades }: Props) {
         >
           <span>Symbol / Time</span>
           <span className="text-center">Direction</span>
-          <span className="text-right">Entry / Close</span>
+          <span className="text-right">Avg Entry / Avg Exit</span>
           <span className="text-right">PNL</span>
           <span className="text-right">Qty</span>
           <span className="text-right">Status</span>
@@ -234,23 +236,32 @@ export default function TradeList({ trades }: Props) {
         ) : (
           <div className="divide-y dark:divide-gray-700 max-h-[520px] overflow-y-auto">
             {filtered.map((trade) => (
-              <div
-                key={trade.id}
-                className="px-3 py-2.5 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                style={{ gridTemplateColumns: '1fr 80px 90px 90px 60px 80px 28px' }}
-              >
+              <div key={trade.id}>
+                <div
+                  className="px-3 py-2.5 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                  style={{ gridTemplateColumns: '1fr 80px 90px 90px 60px 80px 28px' }}
+                >
                 {/* Symbol + time */}
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
                     {(trade.orderCount ?? 1) > 1 && (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedTradeId((current) => (current === trade.id ? null : trade.id))
+                        }
+                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 shrink-0 flex items-center gap-1"
+                        title="Show all underlying Exness orders"
+                      >
                         {trade.orderCount} orders
-                      </span>
+                        <span className="text-[8px]">{expandedTradeId === trade.id ? '▲' : '▼'}</span>
+                      </button>
                     )}
                   </div>
-                  <p className="text-[10px] text-brand-muted">
-                    {trade.closeTime ? format(new Date(trade.closeTime), 'MMM d, HH:mm') : '—'}
+                  <p className="text-[10px] text-brand-muted tabular-nums">
+                    {trade.openTime ? format(new Date(trade.openTime), 'MMM d, HH:mm') : '—'}
+                    {trade.closeTime ? ` → ${format(new Date(trade.closeTime), 'HH:mm')}` : ''}
                   </p>
                 </div>
 
@@ -259,7 +270,7 @@ export default function TradeList({ trades }: Props) {
                   <DirectionBadge direction={trade.direction} />
                 </div>
 
-                {/* Entry / Close */}
+                {/* Avg Entry / Avg Exit */}
                 <div className="text-right">
                   <p className="text-xs dark:text-white">{trade.avgEntryPrice.toFixed(2)}</p>
                   <p className="text-[10px] text-brand-muted">{trade.avgClosePrice.toFixed(2)}</p>
@@ -307,6 +318,8 @@ export default function TradeList({ trades }: Props) {
                     </button>
                   )}
                 </div>
+                </div>
+                {expandedTradeId === trade.id && <TradeOrdersDropdown trade={trade} />}
               </div>
             ))}
           </div>

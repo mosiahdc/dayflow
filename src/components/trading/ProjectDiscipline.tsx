@@ -3,6 +3,7 @@ import { format, parseISO, startOfWeek } from 'date-fns';
 import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
 import type { Trade } from '@/store/tradeStore';
+import TradeOrdersDropdown from './TradeOrdersDropdown';
 
 const PROJECT_START = '2026-08-01 00:00:00';
 
@@ -289,6 +290,7 @@ export default function ProjectDiscipline({ trades }: Props) {
   const [marginMode, setMarginMode] = useState<MarginMode>('Normal');
   const [copied, setCopied] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const [txModal, setTxModal] = useState<TxType | null>(null);
   const [txAmount, setTxAmount] = useState('');
   const [txNote, setTxNote] = useState('');
@@ -737,7 +739,7 @@ export default function ProjectDiscipline({ trades }: Props) {
               <span className="text-center">#</span>
               <span>Symbol / Time</span>
               <span className="text-center">Dir</span>
-              <span className="text-right">Entry / Close</span>
+              <span className="text-right">Avg Entry / Avg Exit</span>
               <span className="text-right">PNL</span>
               <span className="text-right">Qty</span>
               <span className="text-center">Notes</span>
@@ -755,11 +757,11 @@ export default function ProjectDiscipline({ trades }: Props) {
                 style={{ maxHeight: '460px' }}
               >
                 {visibleTrades.map((trade, idx) => (
-                  <div
-                    key={trade.id}
-                    className="px-3 py-2 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                    style={{ gridTemplateColumns: '36px 1fr 72px 90px 80px 50px 100px 80px' }}
-                  >
+                  <div key={trade.id}>
+                    <div
+                      className="px-3 py-2 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                      style={{ gridTemplateColumns: '36px 1fr 72px 90px 80px 50px 100px 80px' }}
+                    >
                     <div className="flex items-center justify-center">
                       <span className="text-xs font-bold text-brand-muted tabular-nums">
                         {visibleTrades.length - idx}
@@ -769,13 +771,26 @@ export default function ProjectDiscipline({ trades }: Props) {
                       <div className="flex items-center gap-1.5 min-w-0">
                         <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
                         {(trade.orderCount ?? 1) > 1 && (
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedTradeId((current) =>
+                                current === trade.id ? null : trade.id
+                              )
+                            }
+                            className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 shrink-0 flex items-center gap-1"
+                            title="Show all underlying Exness orders"
+                          >
                             {trade.orderCount} orders
-                          </span>
+                            <span className="text-[8px]">
+                              {expandedTradeId === trade.id ? '▲' : '▼'}
+                            </span>
+                          </button>
                         )}
                       </div>
-                      <p className="text-[10px] text-brand-muted">
-                        {trade.closeTime ? trade.closeTime.slice(0, 16).replace(' ', ' ') : '—'}
+                      <p className="text-[10px] text-brand-muted tabular-nums">
+                        {trade.openTime ? trade.openTime.slice(0, 16) : '—'}
+                        {trade.closeTime ? ` → ${trade.closeTime.slice(11, 16)}` : ''}
                       </p>
                     </div>
                     <div className="flex justify-center">
@@ -797,6 +812,8 @@ export default function ProjectDiscipline({ trades }: Props) {
                     <div className="flex justify-center">
                       <VideoCell tradeId={trade.id} getNote={getNote} setNote={setNote} />
                     </div>
+                    </div>
+                    {expandedTradeId === trade.id && <TradeOrdersDropdown trade={trade} />}
                   </div>
                 ))}
               </div>

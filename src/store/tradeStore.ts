@@ -1,6 +1,20 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 
+export interface TradeOrderDetail {
+  id: string;
+  referenceOrderId?: string | undefined;
+  openTime: string;
+  closeTime: string;
+  direction: 'Long' | 'Short';
+  avgEntryPrice: number;
+  avgClosePrice: number;
+  closingQty: number;
+  tradingFee: number;
+  realizedPnl: number;
+  status: string;
+}
+
 export interface Trade {
   id: string;
   userId: string;
@@ -29,11 +43,12 @@ export interface Trade {
   sourceIds?: string[];
   referenceOrderIds?: string[];
   orderCount?: number;
+  orders?: TradeOrderDetail[];
 }
 
 type TradeInput = Omit<
   Trade,
-  'id' | 'userId' | 'createdAt' | 'sourceIds' | 'referenceOrderIds' | 'orderCount'
+  'id' | 'userId' | 'createdAt' | 'sourceIds' | 'referenceOrderIds' | 'orderCount' | 'orders'
 >;
 
 // ── Parsers ───────────────────────────────────────────────────────────────────
@@ -304,6 +319,22 @@ function stableLeader(members: Trade[]): Trade {
   })[0]!;
 }
 
+function toOrderDetail(trade: Trade): TradeOrderDetail {
+  return {
+    id: trade.id,
+    referenceOrderId: trade.referenceOrderId,
+    openTime: trade.openTime,
+    closeTime: trade.closeTime,
+    direction: trade.direction,
+    avgEntryPrice: trade.avgEntryPrice,
+    avgClosePrice: trade.avgClosePrice,
+    closingQty: trade.closingQty,
+    tradingFee: trade.tradingFee,
+    realizedPnl: trade.realizedPnl,
+    status: trade.status,
+  };
+}
+
 function consolidateGroup(members: Trade[]): Trade {
   if (members.length === 1) {
     const only = members[0]!;
@@ -312,13 +343,21 @@ function consolidateGroup(members: Trade[]): Trade {
       sourceIds: only.sourceIds?.length ? only.sourceIds : [only.id],
       referenceOrderIds: only.referenceOrderId ? [only.referenceOrderId] : [],
       orderCount: 1,
+      orders: [toOrderDetail(only)],
     };
   }
 
   const leader = stableLeader(members);
   const refs = [...new Set(members.flatMap((t) => t.referenceOrderId ? [t.referenceOrderId] : []))];
   const sourceIds = [...new Set(members.flatMap((t) => t.sourceIds?.length ? t.sourceIds : [t.id]))];
-  const statuses = [...new Set(members.map((t) => t.status).filter(Boolean))];
+  const orders = [...members]
+    .sort((a, b) => {
+      const openCompare = a.openTime.localeCompare(b.openTime);
+      if (openCompare !== 0) return openCompare;
+      const closeCompare = a.closeTime.localeCompare(b.closeTime);
+      return closeCompare !== 0 ? closeCompare : a.id.localeCompare(b.id);
+    })
+    .map(toOrderDetail);
 
   return {
     ...leader,
@@ -334,12 +373,13 @@ function consolidateGroup(members: Trade[]): Trade {
     closingQty: members.reduce((sum, t) => sum + t.closingQty, 0),
     tradingFee: members.reduce((sum, t) => sum + t.tradingFee, 0),
     realizedPnl: members.reduce((sum, t) => sum + t.realizedPnl, 0),
-    status: statuses.length <= 1 ? (statuses[0] ?? leader.status) : statuses.join(' + '),
+    status: 'All Closed',
     source: 'exness',
     referenceOrderId: leader.referenceOrderId,
     referenceOrderIds: refs,
     sourceIds,
     orderCount: members.length,
+    orders,
   };
 }
 
@@ -349,7 +389,7 @@ function consolidateGroup(members: Trade[]): Trade {
  * Rules:
  * - Exness only; MEXC/manual records remain one row each.
  * - Same symbol + same direction.
- * - Orders opened within 2 minutes of the first order in the batch are one trade.
+ * - Orders opened in the same 2-minute opening batch are one trade.
  * - Close time is NOT used for grouping, so 2 TP exits now and the remaining 13
  *   several minutes later still become the same logical trade once they arrive.
  * - Position/order references are retained on the logical trade.
@@ -369,6 +409,7 @@ export function consolidateTrades(rawTrades: Trade[]): Trade[] {
         sourceIds: trade.sourceIds?.length ? trade.sourceIds : [trade.id],
         referenceOrderIds: trade.referenceOrderId ? [trade.referenceOrderId] : [],
         orderCount: 1,
+        orders: [toOrderDetail(trade)],
       });
       continue;
     }
