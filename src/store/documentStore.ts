@@ -57,7 +57,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
   uploading: false,
 
   fetchAll: async () => {
-    set({ loading: true });
+    set((s) => ({ loading: s.documents.length === 0 }));
     const { data, error } = await supabase
       .from('documents')
       .select('*')

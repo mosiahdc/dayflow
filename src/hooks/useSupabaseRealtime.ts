@@ -4,6 +4,10 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { useHabitStore } from '@/store/habitStore';
 import { useTaskStore } from '@/store/taskStore';
 import { usePriorityStore } from '@/store/priorityStore';
+import { useTradeStore } from '@/store/tradeStore';
+import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
+import { useTradeNotesStore } from '@/store/tradeNotesStore';
+import { useTradeJournalStore } from '@/store/tradeJournalStore';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 /**
@@ -24,6 +28,10 @@ export function useSupabaseRealtime() {
   const { fetchHabits, fetchAllEntries } = useHabitStore();
   const { fetchAll: fetchTasks } = useTaskStore();
   const { fetchAll: fetchPriority } = usePriorityStore();
+  const { fetchTrades } = useTradeStore();
+  const { fetchSettings: fetchTradeSettings } = useTradeSettingsStore();
+  const { fetchNotes } = useTradeNotesStore();
+  const { fetchJournal } = useTradeJournalStore();
 
   // Track the currently visible date range so we can re-fetch only what's on screen
   const visibleDatesRef = useRef<{
@@ -97,9 +105,52 @@ export function useSupabaseRealtime() {
       .subscribe();
     channels.push(priorityChannel);
 
+    // ── trading data ───────────────────────────────────────────────────────
+    // Inserts can use the cheap incremental trade sync. Updates/deletes force a
+    // reconciliation because created_at alone cannot describe removed rows.
+    const tradesChannel = supabase
+      .channel('realtime:trades')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trades' }, (payload) => {
+        void fetchTrades(payload.eventType !== 'INSERT');
+      })
+      .subscribe();
+    channels.push(tradesChannel);
+
+    const tradeTxChannel = supabase
+      .channel('realtime:trade_transactions')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trade_transactions' }, () => {
+        void fetchTradeSettings();
+      })
+      .subscribe();
+    channels.push(tradeTxChannel);
+
+    const tradeNotesChannel = supabase
+      .channel('realtime:trade_notes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trade_notes' }, () => {
+        void fetchNotes();
+      })
+      .subscribe();
+    channels.push(tradeNotesChannel);
+
+    const journalEntriesChannel = supabase
+      .channel('realtime:trade_journal_entries')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trade_journal_entries' }, () => {
+        void fetchJournal();
+      })
+      .subscribe();
+    channels.push(journalEntriesChannel);
+
+    const journalAssessmentsChannel = supabase
+      .channel('realtime:trade_journal_assessments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trade_journal_assessments' }, () => {
+        void fetchJournal();
+      })
+      .subscribe();
+    channels.push(journalAssessmentsChannel);
+
     // Cleanup — remove all channels on unmount
     return () => {
       channels.forEach((ch) => supabase.removeChannel(ch));
     };
-  }, [fetchByDate, fetchByWeek, fetchTasks, fetchAllEntries, fetchHabits, fetchPriority]);
+  }, [fetchByDate, fetchByWeek, fetchTasks, fetchAllEntries, fetchHabits, fetchPriority, fetchTrades, fetchTradeSettings, fetchNotes, fetchJournal]);
 }

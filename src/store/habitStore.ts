@@ -47,21 +47,21 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   weekEntries: [],
 
   fetchHabits: async () => {
-    const { data } = await supabase.from('habits').select('*').order('created_at');
-    set({ habits: (data ?? []).map(mapHabit) });
+    const { data, error } = await supabase.from('habits').select('*').order('created_at');
+    if (!error) set({ habits: (data ?? []).map(mapHabit) });
   },
 
   fetchEntries: async (dates) => {
-    const { data } = await supabase.from('habit_entries').select('*').in('date', dates);
-    set({ weekEntries: (data ?? []).map(mapEntry) });
+    const { data, error } = await supabase.from('habit_entries').select('*').in('date', dates);
+    if (!error) set({ weekEntries: (data ?? []).map(mapEntry) });
   },
 
   fetchAllEntries: async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('habit_entries')
       .select('*')
       .order('date', { ascending: false });
-    set({ entries: (data ?? []).map(mapEntry) });
+    if (!error) set({ entries: (data ?? []).map(mapEntry) });
   },
 
   toggleEntry: async (habitId, date) => {

@@ -24,11 +24,11 @@ export const usePriorityStore = create<PriorityStore>((set, get) => ({
     items: [],
 
     fetchAll: async () => {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('priority_items')
             .select('*')
             .order('created_at', { ascending: false });
-        set({ items: (data ?? []).map(map) });
+        if (!error) set({ items: (data ?? []).map(map) });
     },
 
     addItem: async (title, priority, dueDate) => {

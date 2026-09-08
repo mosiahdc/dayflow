@@ -22,7 +22,7 @@ export const useTradeNotesStore = create<TradeNotesStore>((set, get) => ({
   loading: false,
 
   fetchNotes: async () => {
-    set({ loading: true });
+    set((s) => ({ loading: Object.keys(s.notes).length === 0 }));
     const { data } = await supabase.from('trade_notes').select('trade_id, notes, video_url');
     if (data) {
       const map: Record<string, TradeNote> = {};

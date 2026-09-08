@@ -40,13 +40,14 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
   loading: false,
 
   fetchByDate: async (date) => {
-    set({ loading: true });
-    const { data } = await supabase
+    set((s) => ({ loading: s.scheduledTasks.length === 0 }));
+    const { data, error } = await supabase
       .from('scheduled_tasks')
       .select('*, task:tasks(*)')
       .eq('date', date)
       .order('start_slot');
 
+    if (error) { set({ loading: false }); return; }
     const fetched = (data ?? []).map(mapTask);
 
     // Merge: keep tasks from other dates, replace tasks for this date
@@ -58,13 +59,14 @@ export const usePlannerStore = create<PlannerStore>((set, get) => ({
 
   fetchByWeek: async (start, end) => {
     set({ loading: true });
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('scheduled_tasks')
       .select('*, task:tasks(*)')
       .gte('date', start)
       .lte('date', end)
       .order('start_slot');
 
+    if (error) { set({ loading: false }); return; }
     const fetched = (data ?? []).map(mapTask);
 
     // Merge: keep tasks outside this date range, replace tasks within it

@@ -78,14 +78,14 @@ export const useTradeJournalStore = create<TradeJournalStore>((set, get) => ({
   loading: false,
 
   fetchJournal: async () => {
-    set({ loading: true });
-    const [{ data: eData }, { data: aData }] = await Promise.all([
+    set((s) => ({ loading: s.entries.length === 0 && s.assessments.length === 0 }));
+    const [{ data: eData, error: eError }, { data: aData, error: aError }] = await Promise.all([
       supabase.from('trade_journal_entries').select('*').order('date', { ascending: false }),
       supabase.from('trade_journal_assessments').select('*').order('date', { ascending: false }),
     ]);
     set({
-      entries: (eData ?? []).map(mapEntry),
-      assessments: (aData ?? []).map(mapAssessment),
+      entries: eError ? get().entries : (eData ?? []).map(mapEntry),
+      assessments: aError ? get().assessments : (aData ?? []).map(mapAssessment),
       loading: false,
     });
   },

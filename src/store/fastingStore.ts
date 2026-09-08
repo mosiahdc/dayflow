@@ -36,12 +36,13 @@ export const useFastingStore = create<FastingStore>((set, get) => ({
   loading: false,
 
   fetchSessions: async () => {
-    set({ loading: true });
-    const { data } = await supabase
+    set((s) => ({ loading: s.sessions.length === 0 }));
+    const { data, error } = await supabase
       .from('fasting_sessions')
       .select('*')
       .order('started_at', { ascending: false });
 
+    if (error) { set({ loading: false }); return; }
     const all = (data ?? []).map(mapSession);
     const active = all.find((s) => !s.endedAt) ?? null;
     set({ sessions: all, active, loading: false });

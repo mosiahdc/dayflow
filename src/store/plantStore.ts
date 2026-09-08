@@ -45,11 +45,12 @@ export const usePlantStore = create<PlantStore>((set, get) => ({
   loading: false,
 
   fetchPlants: async () => {
-    set({ loading: true });
-    const { data } = await supabase
+    set((s) => ({ loading: s.plants.length === 0 }));
+    const { data, error } = await supabase
       .from('plants')
       .select('*')
       .order('planted_at', { ascending: false });
+    if (error) { set({ loading: false }); return; }
     set({ plants: (data ?? []).map(mapPlant), loading: false });
   },
 

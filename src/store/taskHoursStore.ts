@@ -64,7 +64,7 @@ export const useTaskHoursStore = create<TaskHoursStore>((set, get) => ({
   loading: false,
 
   fetchForWeek: async (weekStart) => {
-    set({ loading: true });
+    set((s) => ({ loading: s.targets.length === 0 }));
     const { data } = await supabase
       .from('task_hour_targets')
       .select('*')

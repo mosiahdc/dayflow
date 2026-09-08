@@ -22,6 +22,7 @@ import PublicReadingLog from '@/pages/reading-public';
 import OfflineBanner from '@/components/OfflineBanner';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useSupabaseRealtime } from '@/hooks/useSupabaseRealtime';
+import { useLocalDataCache } from '@/hooks/useLocalDataCache';
 
 type NavItem = {
   view: View;
@@ -66,6 +67,7 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
 }
 
 function AuthenticatedApp({ session }: { session: Session }) {
+  const cacheReady = useLocalDataCache(session.user.id);
   const { isDarkMode, activeView, setView, setDate, toggleDark, docsNewBadge, dismissDocsBadge } = useUIStore();
   const { needRefresh, updateServiceWorker } = useRegisterSW();
   const [mobileMore, setMobileMore] = useState(false);
@@ -73,6 +75,15 @@ function AuthenticatedApp({ session }: { session: Session }) {
 
   useSupabaseRealtime();
   useOfflineSync();
+
+  if (!cacheReady) {
+    return (
+      <div className="df-loading-screen">
+        <div className="df-loading-mark"><span /></div>
+        <p>Restoring your local DayFlow cache…</p>
+      </div>
+    );
+  }
 
   const isPlannerView = (v: View) => v === 'day' || v === 'week' || v === 'month';
 

@@ -464,7 +464,7 @@ export const useTradeSettingsStore = create<TradeSettingsStore>((set, get) => ({
   loading: false,
 
   fetchSettings: async () => {
-    set({ loading: true });
+    set((s) => ({ loading: s.transactions.length === 0 && s.initialBalance === 0 }));
 
     const {
       data: { user },
@@ -493,10 +493,16 @@ export const useTradeSettingsStore = create<TradeSettingsStore>((set, get) => ({
     if (txError) console.error('Could not load trading cash flow:', txError);
 
     set({
-      initialBalance: settingsData ? Number(settingsData.initial_balance) : 0,
-      // Keep legacy Transfer rows in Supabase for audit/history, but do not load them into
-      // the active balance model. Only Deposit / Withdrawal cash flow should affect DayFlow.
-      transactions: (txData ?? []).map(mapTx).filter((tx) => !isLegacyExnessTransfer(tx)),
+      initialBalance: settingsError
+        ? get().initialBalance
+        : settingsData
+          ? Number(settingsData.initial_balance)
+          : 0,
+      // Keep the hydrated local cache if the cloud request fails. Supabase remains
+      // authoritative whenever a successful response is available.
+      transactions: txError
+        ? get().transactions
+        : (txData ?? []).map(mapTx).filter((tx) => !isLegacyExnessTransfer(tx)),
       loading: false,
     });
   },

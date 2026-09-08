@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { getLocalCache, setLocalCache, deleteLocalCache, getCacheMeta, setCacheMeta, clearCacheMeta, mergeById } from '@/lib/localCache';
 
 export interface TradeOrderDetail {
   id: string;
@@ -479,8 +480,13 @@ export function consolidateTrades(rawTrades: Trade[]): Trade[] {
 
 const CHUNK_SIZE = 500;
 const PAGE_SIZE = 1000;
+const TRADE_RAW_CACHE_KEY = 'trades:raw:v2';
+const TRADE_CACHE_META_KEY = 'trades:raw:v2';
+const TRADE_FULL_RECONCILE_MS = 12 * 60 * 60 * 1000;
 
-async function fetchAllTrades(): Promise<Trade[]> {
+let tradeSyncPromise: Promise<Trade[]> | null = null;
+
+async function fetchAllRawTrades(): Promise<Trade[]> {
   const all: Trade[] = [];
   let from = 0;
   while (true) {
@@ -489,12 +495,103 @@ async function fetchAllTrades(): Promise<Trade[]> {
       .select('*')
       .order('close_time', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
-    if (error || !data || data.length === 0) break;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
     all.push(...data.map(mapTrade));
     if (data.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
   }
-  return consolidateTrades(all);
+  return all;
+}
+
+async function fetchRawTradesSince(createdAt: string): Promise<Trade[]> {
+  const all: Trade[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from('trades')
+      .select('*')
+      .gt('created_at', createdAt)
+      .order('created_at', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...data.map(mapTrade));
+    if (data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
+}
+
+function maxCreatedAt(trades: Trade[]): string | undefined {
+  return trades.reduce<string | undefined>((max, trade) => {
+    if (!trade.createdAt) return max;
+    return !max || trade.createdAt > max ? trade.createdAt : max;
+  }, undefined);
+}
+
+async function syncTradeCache(userId: string, forceFull = false): Promise<Trade[]> {
+  if (tradeSyncPromise && !forceFull) return tradeSyncPromise;
+
+  tradeSyncPromise = (async () => {
+    const cachedRaw = (await getLocalCache<Trade[]>(userId, TRADE_RAW_CACHE_KEY)) ?? [];
+    const meta = getCacheMeta(userId, TRADE_CACHE_META_KEY);
+    const needsFull =
+      forceFull ||
+      cachedRaw.length === 0 ||
+      !meta.lastFullSyncAt ||
+      Date.now() - meta.lastFullSyncAt >= TRADE_FULL_RECONCILE_MS;
+
+    if (needsFull) {
+      const raw = await fetchAllRawTrades();
+      await setLocalCache(userId, TRADE_RAW_CACHE_KEY, raw);
+      setCacheMeta(userId, TRADE_CACHE_META_KEY, {
+        version: 2,
+        lastFullSyncAt: Date.now(),
+        lastIncrementalSyncAt: Date.now(),
+        lastCreatedAt: maxCreatedAt(raw),
+      });
+      return consolidateTrades(raw);
+    }
+
+    const watermark = meta.lastCreatedAt ?? maxCreatedAt(cachedRaw);
+    if (!watermark) {
+      const raw = await fetchAllRawTrades();
+      await setLocalCache(userId, TRADE_RAW_CACHE_KEY, raw);
+      setCacheMeta(userId, TRADE_CACHE_META_KEY, {
+        version: 2,
+        lastFullSyncAt: Date.now(),
+        lastIncrementalSyncAt: Date.now(),
+        lastCreatedAt: maxCreatedAt(raw),
+      });
+      return consolidateTrades(raw);
+    }
+
+    const incoming = await fetchRawTradesSince(watermark);
+    if (incoming.length === 0) {
+      setCacheMeta(userId, TRADE_CACHE_META_KEY, { lastIncrementalSyncAt: Date.now() });
+      return consolidateTrades(cachedRaw);
+    }
+
+    const merged = mergeById(cachedRaw, incoming);
+    await setLocalCache(userId, TRADE_RAW_CACHE_KEY, merged);
+    setCacheMeta(userId, TRADE_CACHE_META_KEY, {
+      version: 2,
+      lastIncrementalSyncAt: Date.now(),
+      lastCreatedAt: maxCreatedAt(merged),
+    });
+    return consolidateTrades(merged);
+  })();
+
+  try {
+    return await tradeSyncPromise;
+  } finally {
+    tradeSyncPromise = null;
+  }
+}
+
+async function fetchAllTrades(): Promise<Trade[]> {
+  return consolidateTrades(await fetchAllRawTrades());
 }
 
 function toDbRow(userId: string, t: TradeInput): Record<string, unknown> {
@@ -545,7 +642,7 @@ export interface TradeBatchImportSummary {
 interface TradeStore {
   trades: Trade[];
   loading: boolean;
-  fetchTrades: () => Promise<void>;
+  fetchTrades: (forceFull?: boolean) => Promise<void>;
   addTrade: (trade: TradeInput) => Promise<void>;
   addTrades: (
     trades: TradeInput[],
@@ -560,10 +657,29 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
   trades: [],
   loading: false,
 
-  fetchTrades: async () => {
-    set({ loading: true });
-    const all = await fetchAllTrades();
-    set({ trades: all, loading: false });
+  fetchTrades: async (forceFull = false) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      set({ trades: [], loading: false });
+      return;
+    }
+
+    const cachedRaw = await getLocalCache<Trade[]>(user.id, TRADE_RAW_CACHE_KEY);
+    if (cachedRaw?.length && get().trades.length === 0) {
+      set({ trades: consolidateTrades(cachedRaw), loading: false });
+    } else if (get().trades.length === 0) {
+      set({ loading: true });
+    }
+
+    try {
+      const all = await syncTradeCache(user.id, forceFull);
+      set({ trades: all, loading: false });
+    } catch (error) {
+      console.error('Could not sync trades:', error);
+      set({ loading: false });
+    }
   },
 
   addTrade: async (trade) => {
@@ -585,8 +701,15 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
     }
 
     if (!result.error && result.data) {
-      const all = await fetchAllTrades();
-      set({ trades: all });
+      const rawTrade = mapTrade(result.data as Record<string, unknown>);
+      const cachedRaw = (await getLocalCache<Trade[]>(user.id, TRADE_RAW_CACHE_KEY)) ?? [];
+      const merged = mergeById(cachedRaw, [rawTrade]);
+      await setLocalCache(user.id, TRADE_RAW_CACHE_KEY, merged);
+      setCacheMeta(user.id, TRADE_CACHE_META_KEY, {
+        lastIncrementalSyncAt: Date.now(),
+        lastCreatedAt: maxCreatedAt(merged),
+      });
+      set({ trades: consolidateTrades(merged) });
     }
   },
 
@@ -653,7 +776,7 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
       onProgress?.(inserted, freshTrades.length);
     }
 
-    const all = await fetchAllTrades();
+    const all = await syncTradeCache(user.id, false);
     set({ trades: all });
     return { inserted, skippedDuplicates };
   },
@@ -664,6 +787,17 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
 
     if (ids.length === 1) await supabase.from('trades').delete().eq('id', ids[0]!);
     else await supabase.from('trades').delete().in('id', ids);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const cachedRaw = (await getLocalCache<Trade[]>(user.id, TRADE_RAW_CACHE_KEY)) ?? [];
+      const idSet = new Set(ids);
+      const nextRaw = cachedRaw.filter((trade) => !idSet.has(trade.id));
+      await setLocalCache(user.id, TRADE_RAW_CACHE_KEY, nextRaw);
+      setCacheMeta(user.id, TRADE_CACHE_META_KEY, { lastCreatedAt: maxCreatedAt(nextRaw) });
+    }
 
     set((s: TradeStore) => ({ trades: s.trades.filter((t: Trade) => t.id !== id) }));
   },
@@ -694,6 +828,17 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
       }
     }
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const cachedRaw = (await getLocalCache<Trade[]>(user.id, TRADE_RAW_CACHE_KEY)) ?? [];
+      const sourceIdSet = new Set(sourceIds);
+      const nextRaw = cachedRaw.filter((trade) => !sourceIdSet.has(trade.id));
+      await setLocalCache(user.id, TRADE_RAW_CACHE_KEY, nextRaw);
+      setCacheMeta(user.id, TRADE_CACHE_META_KEY, { lastCreatedAt: maxCreatedAt(nextRaw) });
+    }
+
     set((s: TradeStore) => ({
       trades: s.trades.filter((trade: Trade) => !logicalIdSet.has(trade.id)),
     }));
@@ -709,6 +854,8 @@ export const useTradeStore = create<TradeStore>((set, get) => ({
     // trade history only; cash-flow deposits/withdrawals live in a separate store.
     const { error } = await supabase.from('trades').delete().eq('user_id', user.id);
     if (error) throw error;
+    await deleteLocalCache(user.id, TRADE_RAW_CACHE_KEY);
+    clearCacheMeta(user.id, TRADE_CACHE_META_KEY);
     set({ trades: [] });
   },
 }));

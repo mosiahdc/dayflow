@@ -29,11 +29,12 @@ export const useTaskStore = create<TaskStore>((set) => ({
   loading: false,
 
   fetchAll: async () => {
-    set({ loading: true });
-    const { data } = await supabase
+    set((s) => ({ loading: s.tasks.length === 0 }));
+    const { data, error } = await supabase
       .from('tasks')
       .select('*')
       .order('created_at', { ascending: false });
+    if (error) { set({ loading: false }); return; }
     set({ tasks: (data ?? []).map(mapTask), loading: false });
   },
 

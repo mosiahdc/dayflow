@@ -48,7 +48,7 @@ export const useHighlightStore = create<HighlightStore>((set, get) => ({
   loading: false,
 
   fetchAll: async () => {
-    set({ loading: true });
+    set((s) => ({ loading: s.highlights.length === 0 }));
     const { data, error } = await supabase
       .from('document_highlights')
       .select('*')
