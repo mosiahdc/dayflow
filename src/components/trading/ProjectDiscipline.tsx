@@ -132,7 +132,7 @@ function StatBox({
 }) {
   return (
     <div
-      className={`df-discipline-stat p-4 flex flex-col gap-1 ${highlight ? 'is-highlight' : ''}`}
+      className={`df-discipline-stat df-discipline-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')} p-4 flex flex-col gap-1 ${highlight ? 'is-highlight' : ''}`}
     >
       <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{label}</p>
       {children}
@@ -442,8 +442,20 @@ export default function ProjectDiscipline({ trades }: Props) {
 
   return (
     <div className="df-project-discipline flex flex-col gap-4">
+      <section className="df-discipline-hero">
+        <div>
+          <span className="df-kicker">PROJECT DISCIPLINE · SINCE AUG 1</span>
+          <h2>One account. One continuous ledger. One set of weekly rules.</h2>
+          <p>Balance, Exness cash flow, D-NULL compensation, weekly risk and execution all reconcile in the same workspace.</p>
+        </div>
+        <div className="df-discipline-hero-stats">
+          <div><span>Live balance</span><strong>{balance.toFixed(2)} USD</strong></div>
+          <div><span>Project P&amp;L</span><strong className={projectPnl >= 0 ? 'is-positive' : 'is-negative'}>{projectPnl >= 0 ? '+' : ''}{projectPnl.toFixed(2)}</strong></div>
+          <div><span>Week base</span><strong>{weeklyBase.toFixed(2)}</strong></div>
+        </div>
+      </section>
       {/* ── Row 1: Stats ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
+      <section className="df-discipline-cockpit">
         {/* Balance */}
         <StatBox label="Balance">
           <p
@@ -590,7 +602,7 @@ export default function ProjectDiscipline({ trades }: Props) {
             (Live balance × 1%) ÷ {MARGIN_DIVISORS[marginMode]}
           </p>
         </StatBox>
-      </div>
+      </section>
 
       {/* ── Transaction history ────────────────────────────────────────────── */}
       {showTxHistory && transactions.length > 0 && (
@@ -709,19 +721,18 @@ export default function ProjectDiscipline({ trades }: Props) {
       )}
 
       {/* ── Row 2: Sidebar + Trade log ─────────────────────────────────────── */}
-      <div className="flex gap-4" style={{ minHeight: '520px' }}>
+      <div className="df-discipline-log-layout">
         {/* Left sidebar — daily summary */}
-        <div className="w-48 shrink-0 flex flex-col gap-2">
+        <div className="df-daily-summary-strip">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted px-1">
             Daily Summary
           </p>
-          <div className="df-trade-card overflow-hidden flex-1">
+          <div className="df-daily-summary-scroll">
             {dailySummary.length === 0 ? (
               <p className="text-xs text-brand-muted text-center py-8 px-3">No trades yet.</p>
             ) : (
               <div
-                className="divide-y dark:divide-gray-700 overflow-y-auto"
-                style={{ maxHeight: '480px' }}
+                className="df-daily-summary-items"
               >
                 {dailySummary.map(({ date, pnl, count }) => {
                   const isSelected = selectedDate === date;
@@ -761,7 +772,7 @@ export default function ProjectDiscipline({ trades }: Props) {
         </div>
 
         {/* Middle — trade log */}
-        <div className="flex-1 flex flex-col gap-2 min-w-0">
+        <div className="df-discipline-trade-log">
           <div className="flex items-center justify-between px-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
               {selectedDate

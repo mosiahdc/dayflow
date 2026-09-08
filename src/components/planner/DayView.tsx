@@ -174,42 +174,52 @@ export default function DayView({ date, scheduledTasks }: Props) {
   const done = dayTasks.filter((t) => t.done).length;
   const total = dayTasks.length;
 
+  const completionPct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const plannedMinutes = dayTasks.reduce((sum, t) => sum + t.task.durationMins, 0);
+
   return (
-    <div
-      className="df-planner-board rounded-xl overflow-hidden flex flex-col"
-      style={{ background: 'var(--df-surface)', border: '1px solid var(--df-border)' }}
-    >
-      {/* Header — blue accent bar matching wireframe */}
-      <div className="px-3 py-2.5 flex flex-col gap-1.5" style={{ background: 'var(--df-accent)' }}>
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-sm text-white">📅 Daily Planner</span>
-          {total > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-medium text-white">
-              {done}/{total} done
-            </span>
-          )}
+    <section className="df-execution-board">
+      <div className="df-execution-hero">
+        <div className="df-execution-copy">
+          <span className="df-kicker">DAY EXECUTION</span>
+          <h2>{format(new Date(date), 'EEEE, MMMM d')}</h2>
+          <p>
+            {total === 0
+              ? 'Your day is open. Drag a task into the timeline to shape it.'
+              : `${plannedMinutes} minutes planned · ${done} of ${total} blocks completed.`}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="df-execution-score">
+          <div className="df-execution-score-value">{completionPct}%</div>
+          <div className="df-execution-score-label">day complete</div>
+        </div>
+      </div>
+
+      <div className="df-execution-progress-wrap">
+        <div className="df-execution-progress-meta">
+          <span>Daily progress</span>
+          <strong>{done}/{total || 0} completed</strong>
+        </div>
+        <div className="df-execution-progress">
+          <span style={{ width: `${completionPct}%` }} />
+        </div>
+      </div>
+
+      <div className="df-execution-toolbar">
+        <div>
+          <span className="df-kicker">TIMELINE</span>
+          <strong>Plan and execute</strong>
+        </div>
+        <div className="df-execution-actions">
           <TemplateMenu date={date} />
           <ExportMenu date={date} />
           <ICSImportButton />
         </div>
       </div>
 
-      {/* Progress bar */}
-      {total > 0 && (
-        <div className="h-0.5" style={{ background: 'var(--df-border)' }}>
-          <div
-            className="h-0.5 transition-all"
-            style={{ width: `${(done / total) * 100}%`, background: 'var(--df-green)' }}
-          />
-        </div>
-      )}
-
       <div
         ref={scrollRef}
-        className="overflow-y-auto"
-        style={{ maxHeight: '520px' }}
+        className="df-execution-timeline"
         {...swipeHandlers}
       >
         {slots.map((slot) => (
@@ -223,6 +233,6 @@ export default function DayView({ date, scheduledTasks }: Props) {
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }

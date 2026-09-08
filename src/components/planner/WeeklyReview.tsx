@@ -232,141 +232,140 @@ export default function WeeklyReview() {
   const nextWeekLabel = `${format(weekBase, 'MMM d')} – ${format(endOfWeek(weekBase, { weekStartsOn: 1 }), 'MMM d, yyyy')}`;
   const prevLabel = `${format(prevWeekStart, 'MMM d')} – ${format(prevWeekEnd, 'MMM d')}`;
 
+  const recapMetrics = [taskStats.pct, habitStats.pct].filter((v): v is number => v !== null);
+  const recapScore = recapMetrics.length ? Math.round(recapMetrics.reduce((a, b) => a + b, 0) / recapMetrics.length) : null;
+  const filledPriorities = review.priorities.filter((p) => p.trim()).length;
+
   return (
-    <div style={s.page} className="df-review-shell">
-      {/* Header */}
-      <div style={s.header}>
+    <div style={s.page} className="df-review-shell df-review-workspace">
+      <section className="df-review-hero">
         <div>
-          <div style={s.title}>📋 Weekly Review</div>
-          <div style={s.weekLabel}>Planning week of {nextWeekLabel}</div>
+          <span className="df-kicker">WEEKLY RESET</span>
+          <h2>Close the loop before you plan the next one.</h2>
+          <p>Review what actually happened, keep the useful lessons, then choose a small number of priorities for {nextWeekLabel}.</p>
         </div>
-        <div style={s.navRow}>
-          <button style={s.navBtn} onClick={() => setWeekBase(w => subWeeks(w, 1))}>← Prev</button>
-          <button
-            style={{ ...s.navBtn, color: format(weekBase, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd') ? 'var(--df-border)' : 'var(--df-muted)', cursor: format(weekBase, 'yyyy-MM-dd') === format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd') ? 'default' : 'pointer' }}
-            onClick={() => setWeekBase(startOfWeek(today, { weekStartsOn: 1 }))}
-          >
-            This week
-          </button>
-          <button
-            style={{ ...s.navBtn, color: weekBase > startOfWeek(today, { weekStartsOn: 1 }) ? 'var(--df-muted)' : 'var(--df-border)', cursor: weekBase > startOfWeek(today, { weekStartsOn: 1 }) ? 'pointer' : 'default' }}
-            onClick={() => { if (weekBase <= startOfWeek(today, { weekStartsOn: 1 })) return; setWeekBase(w => addWeeks(w, 1)); }}
-          >
-            Next →
-          </button>
+        <div className="df-review-nav">
+          <button onClick={() => setWeekBase((w) => subWeeks(w, 1))}>←</button>
+          <div><span>Planning week</span><strong>{nextWeekLabel}</strong></div>
+          <button onClick={() => { if (weekBase <= startOfWeek(today, { weekStartsOn: 1 })) return; setWeekBase((w) => addWeeks(w, 1)); }}>→</button>
+          <button className="df-review-current" onClick={() => setWeekBase(startOfWeek(today, { weekStartsOn: 1 }))}>This week</button>
         </div>
-      </div>
+      </section>
 
-      {/* ── Section 1: Last week recap ── */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>📊 Last week recap — {prevLabel}</div>
-
-        <div style={s.statRow}>
-          <div style={s.stat}>
-            <div style={{ ...s.statNum, color: 'var(--df-accent)' }}>
-              {taskStats.pct !== null ? `${taskStats.pct}%` : '—'}
-            </div>
-            <div style={s.statLabel}>
-              Tasks done ({taskStats.done}/{taskStats.total})
-            </div>
-          </div>
-          <div style={s.stat}>
-            <div style={{ ...s.statNum, color: 'var(--df-green)' }}>
-              {habitStats.pct !== null ? `${habitStats.pct}%` : '—'}
-            </div>
-            <div style={s.statLabel}>
-              Habits hit ({habitStats.completed}/{habitStats.total})
-            </div>
-          </div>
-          <div style={s.stat}>
-            <div style={{ ...s.statNum, color: 'var(--df-amber)' }}>{booksLastWeek.length}</div>
-            <div style={s.statLabel}>Books finished</div>
-          </div>
+      <section className="df-review-score-grid">
+        <div className="df-review-score-card is-overall">
+          <span>Completion snapshot</span>
+          <strong>{recapScore !== null ? `${recapScore}%` : '—'}</strong>
+          <small>average of task + habit completion</small>
         </div>
+        <div className="df-review-score-card">
+          <span>Tasks</span>
+          <strong>{taskStats.pct !== null ? `${taskStats.pct}%` : '—'}</strong>
+          <small>{taskStats.done}/{taskStats.total} completed</small>
+        </div>
+        <div className="df-review-score-card">
+          <span>Habits</span>
+          <strong>{habitStats.pct !== null ? `${habitStats.pct}%` : '—'}</strong>
+          <small>{habitStats.completed}/{habitStats.total} target checks</small>
+        </div>
+        <div className="df-review-score-card">
+          <span>Reading</span>
+          <strong>{booksLastWeek.length}</strong>
+          <small>books finished last week</small>
+        </div>
+      </section>
 
-        {booksLastWeek.length > 0 && (
-          <div>
-            {booksLastWeek.map(b => (
-              <div key={b.id} style={s.bookItem}>
-                <span style={{ fontSize: 16 }}>📖</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--df-text)' }}>{b.title}</div>
-                  {b.author && <div style={{ fontSize: 11, color: 'var(--df-muted)' }}>{b.author}</div>}
+      <div className="df-review-layout">
+        <section className="df-review-card df-review-recap-card">
+          <div className="df-review-card-head">
+            <div><span className="df-kicker">01 · LOOK BACK</span><h3>Last week · {prevLabel}</h3></div>
+            <span className="df-chip is-blue">Evidence first</span>
+          </div>
+          <p className="df-section-copy">Use the data as context, not as a grade. The goal is to understand where your system supported you and where it created friction.</p>
+
+          <div className="df-review-insight-row">
+            <div><span>Task execution</span><b>{taskStats.pct !== null ? `${taskStats.pct}%` : 'No data'}</b></div>
+            <div className="df-mini-progress"><i style={{ width: `${taskStats.pct ?? 0}%` }} /></div>
+          </div>
+          <div className="df-review-insight-row">
+            <div><span>Habit consistency</span><b>{habitStats.pct !== null ? `${habitStats.pct}%` : 'No data'}</b></div>
+            <div className="df-mini-progress"><i style={{ width: `${habitStats.pct ?? 0}%`, background: 'var(--df-green)' }} /></div>
+          </div>
+
+          {booksLastWeek.length > 0 ? (
+            <div className="df-review-books">
+              <span className="df-field-label">Finished reading</span>
+              {booksLastWeek.map((b) => (
+                <div key={b.id} className="df-review-book-row">
+                  <span>📖</span>
+                  <div><strong>{b.title}</strong>{b.author && <small>{b.author}</small>}</div>
                 </div>
-              </div>
+              ))}
+            </div>
+          ) : (
+            <div className="df-review-note"><span>Reading</span><p>No books were marked finished during the reviewed week.</p></div>
+          )}
+
+          <div className="df-field" style={{ marginTop: 18 }}>
+            <label>Lessons / other notes</label>
+            <textarea
+              placeholder="What worked? What felt heavier than it should? What should change next week?"
+              value={review.notes}
+              onChange={(e) => upd('notes', e.target.value)}
+            />
+          </div>
+        </section>
+
+        <section className="df-review-card df-review-plan-card">
+          <div className="df-review-card-head">
+            <div><span className="df-kicker">02 · LOOK FORWARD</span><h3>Design the next week</h3></div>
+            <span className={`df-chip ${filledPriorities === 3 ? 'is-green' : ''}`}>{filledPriorities}/3 priorities</span>
+          </div>
+          <p className="df-section-copy">Three priorities is a constraint on purpose. If everything is important, the week has no direction.</p>
+
+          <div className="df-review-priorities">
+            {([0, 1, 2] as const).map((i) => (
+              <label key={i} className="df-review-priority-row">
+                <span style={{ background: priorityColors[i] }}>{i + 1}</span>
+                <input
+                  placeholder={i === 0 ? 'The one outcome that matters most…' : i === 1 ? 'Second important outcome…' : 'Third important outcome…'}
+                  value={review.priorities[i]}
+                  onChange={(e) => {
+                    const next = [...review.priorities] as [string, string, string];
+                    next[i] = e.target.value;
+                    upd('priorities', next);
+                  }}
+                />
+              </label>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* ── Section 2: Next week intentions ── */}
-      <div style={s.card}>
-        <div style={s.cardTitle}>🎯 Next week intentions — {nextWeekLabel}</div>
-
-        {/* 3 Priorities */}
-        <div style={{ marginBottom: 16 }}>
-          <span style={s.label}>Top 3 priorities</span>
-          {([0, 1, 2] as const).map(i => (
-            <div key={i} style={s.priorityRow}>
-              <div style={{ ...s.priorityNum, background: priorityColors[i] }}>{i + 1}</div>
+          <div className="df-review-focus-grid">
+            <div className="df-field">
+              <label>Focus habit</label>
               <input
-                style={{ ...s.input }}
-                placeholder={i === 0 ? 'Most important priority…' : i === 1 ? 'Second priority…' : 'Third priority…'}
-                value={review.priorities[i]}
-                onChange={e => {
-                  const next = [...review.priorities] as [string, string, string];
-                  next[i] = e.target.value;
-                  upd('priorities', next);
-                }}
+                placeholder="e.g. Exercise"
+                value={review.focusHabit}
+                onChange={(e) => upd('focusHabit', e.target.value)}
+                list="habit-suggestions"
+              />
+              <datalist id="habit-suggestions">{habits.map((h) => <option key={h.id} value={h.title} />)}</datalist>
+            </div>
+            <div className="df-field">
+              <label>Reading goal</label>
+              <input
+                placeholder="e.g. Finish Chapter 12"
+                value={review.readingGoal}
+                onChange={(e) => upd('readingGoal', e.target.value)}
               />
             </div>
-          ))}
-        </div>
+          </div>
 
-        {/* Focus habit */}
-        <div style={{ marginBottom: 14 }}>
-          <span style={s.label}>Focus habit this week</span>
-          <input
-            style={s.input}
-            placeholder="Which habit to prioritise? e.g. Exercise"
-            value={review.focusHabit}
-            onChange={e => upd('focusHabit', e.target.value)}
-            list="habit-suggestions"
-          />
-          <datalist id="habit-suggestions">
-            {habits.map(h => <option key={h.id} value={h.title} />)}
-          </datalist>
-        </div>
-
-        {/* Reading goal */}
-        <div style={{ marginBottom: 14 }}>
-          <span style={s.label}>Reading goal</span>
-          <input
-            style={s.input}
-            placeholder="e.g. Finish Chapter 12 of Atomic Habits"
-            value={review.readingGoal}
-            onChange={e => upd('readingGoal', e.target.value)}
-          />
-        </div>
-
-        {/* Notes */}
-        <div style={{ marginBottom: 16 }}>
-          <span style={s.label}>Other notes / intentions</span>
-          <textarea
-            style={s.textarea}
-            placeholder="Anything else on your mind for the week…"
-            value={review.notes}
-            onChange={e => upd('notes', e.target.value)}
-          />
-        </div>
-
-        {/* Save */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button style={s.saveBtn} onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save Review'}
-          </button>
-          {saved && <span style={s.savedBadge}>✓ Saved</span>}
-        </div>
+          <div className="df-review-save-bar">
+            <div><span>Ready for the week?</span><small>Your review can be edited again later.</small></div>
+            <button className="df-btn df-btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : saved ? 'Saved ✓' : 'Complete review'}</button>
+          </div>
+        </section>
       </div>
     </div>
   );

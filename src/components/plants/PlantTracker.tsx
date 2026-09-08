@@ -393,112 +393,83 @@ export default function PlantTracker() {
     });
   };
 
-  return (
-    <div className="flex flex-col gap-0">
-      {/* Header */}
-      <div
-        className="text-white px-4 py-3 flex items-center justify-between rounded-xl mb-1"
-        style={{ background: 'linear-gradient(135deg, #14532d 0%, #166534 100%)' }}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-lg">🌱</span>
-          <span className="font-semibold text-sm">Plant Tracker</span>
-          {active.length > 0 && (
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-              {active.length} growing
-            </span>
-          )}
-        </div>
-        <button
-          onClick={() => {
-            setEditing(undefined);
-            setShowForm(true);
-          }}
-          className="text-xs bg-white/20 hover:bg-white/30 px-2.5 py-1.5 rounded-lg font-medium"
-        >
-          + Add Plant
-        </button>
-      </div>
+  const readyCount = active.filter((plant) => computeStages(plant, new Date()).isDone).length;
+  const activeStageCount = active.length - readyCount;
 
-      {loading && <div className="p-8 text-center text-sm text-brand-muted">Loading…</div>}
+  return (
+    <div className="df-plants-workspace">
+      <section className="df-plants-hero">
+        <div>
+          <span className="df-kicker">GROWTH TRACKER</span>
+          <h2>See what is growing, what is next, and what is ready.</h2>
+          <p>Each plant keeps its stage timeline visible so you can act before a transition gets missed.</p>
+        </div>
+        <button className="df-btn df-btn-primary" onClick={() => { setEditing(undefined); setShowForm(true); }}>+ Add plant</button>
+      </section>
+
+      <section className="df-plant-kpis">
+        <div><span>Growing</span><strong>{activeStageCount}</strong><small>in active stages</small></div>
+        <div><span>Ready</span><strong>{readyCount}</strong><small>completed cycles</small></div>
+        <div><span>Archived</span><strong>{archived.length}</strong><small>past grows</small></div>
+        <div><span>Total tracked</span><strong>{plants.length}</strong><small>all plant records</small></div>
+      </section>
+
+      {loading && <div className="df-empty-state"><strong>Loading plant data…</strong></div>}
 
       {!loading && sorted.length === 0 && (
-        <div className="p-8 text-center">
-          <p className="text-3xl mb-2">🪴</p>
-          <p className="text-sm text-brand-muted mb-1">No plants yet.</p>
-          <p className="text-xs text-brand-muted">
-            Add your first plant to start tracking its journey.
-          </p>
+        <div className="df-empty-state">
+          <span style={{ fontSize: 32 }}>🪴</span>
+          <strong>No plants yet.</strong>
+          <p>Add the first grow and DayFlow will map each stage from planted date to harvest.</p>
         </div>
       )}
 
       {!loading && sorted.length > 0 && (
-        <div className="p-3 flex flex-col gap-3">
+        <section className="df-plants-grid">
           {sorted.map((plant) => (
-            <div
-              key={plant.id}
-              className="df-plant-card overflow-hidden"
-            >
+            <article key={plant.id} className="df-plant-card overflow-hidden">
               <PlantRow
                 plant={plant}
-                onEdit={() => {
-                  setEditing(plant);
-                  setShowForm(true);
-                }}
+                onEdit={() => { setEditing(plant); setShowForm(true); }}
                 onDelete={() => deletePlant(plant.id)}
                 onDuplicate={() => handleDuplicate(plant)}
                 onReplant={() => handleReplant(plant)}
                 onArchive={() => archivePlant(plant.id)}
               />
-            </div>
+            </article>
           ))}
-        </div>
+        </section>
       )}
 
-      {/* Archived section */}
       {archived.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowArchived(!showArchived)}
-            className="w-full px-4 py-2.5 text-xs text-brand-muted flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/30"
-          >
-            <span>
-              🗂 {archived.length} archived plant{archived.length > 1 ? 's' : ''}
-            </span>
-            <span>{showArchived ? '▲' : '▼'}</span>
+        <section className="df-plants-archive">
+          <button onClick={() => setShowArchived(!showArchived)} className="df-plants-archive-toggle">
+            <span><b>Archived grows</b><small>{archived.length} previous plant{archived.length > 1 ? 's' : ''}</small></span>
+            <span>{showArchived ? '−' : '+'}</span>
           </button>
           {showArchived && (
-            <div className="px-3 pb-3 flex flex-col gap-3">
+            <div className="df-plants-grid is-archive">
               {archived.map((plant) => (
-                <div
-                  key={plant.id}
-                  className="df-plant-card overflow-hidden opacity-60"
-                >
+                <article key={plant.id} className="df-plant-card overflow-hidden opacity-70">
                   <PlantRow
                     plant={plant}
-                    onEdit={() => {
-                      setEditing(plant);
-                      setShowForm(true);
-                    }}
+                    onEdit={() => { setEditing(plant); setShowForm(true); }}
                     onDelete={() => deletePlant(plant.id)}
                     onDuplicate={() => handleDuplicate(plant)}
                     onReplant={() => handleReplant(plant)}
                     onArchive={() => {}}
                   />
-                </div>
+                </article>
               ))}
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {showForm && (
         <PlantForm
           {...(editing ? { editing } : {})}
-          onClose={() => {
-            setShowForm(false);
-            setEditing(undefined);
-          }}
+          onClose={() => { setShowForm(false); setEditing(undefined); }}
         />
       )}
     </div>

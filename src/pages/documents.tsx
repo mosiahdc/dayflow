@@ -1201,143 +1201,84 @@ export default function DocumentsPage() {
     );
   }
 
-  const tabStyle = (t: ReadTab): React.CSSProperties => ({
-    padding: '8px 18px', fontSize: 13, fontWeight: tab === t ? 500 : 400,
-    color: tab === t ? '#fff' : 'var(--df-muted)',
-    background: tab === t ? 'var(--df-accent)' : 'transparent',
-    border: 'none', borderRadius: 6, cursor: 'pointer', transition: 'all .15s',
-  });
+  const queueCount = documents.filter((d) => d.status === 'queue').length;
+  const readingDocs = documents.filter((d) => d.status === 'reading');
+  const finishedCount = documents.filter((d) => d.status === 'finished').length;
+  const spotlight = readingDocs[0] ?? null;
+  const spotlightPct = spotlight?.pageCount ? Math.min(100, Math.round((spotlight.lastPage / spotlight.pageCount) * 100)) : 0;
 
   return (
-    <div className="df-page df-reading-page" style={{ minHeight: 'calc(100vh - 130px)' }}>
-      {/* Tab bar */}
-      <div style={{ display:'flex',gap:4,padding:'8px 16px',background:'var(--df-surface)',
-        borderBottom:'1px solid var(--df-border)',marginBottom:0,flexWrap:'wrap' }}>
-        {(['insight','queue','reading','archive','notebook'] as ReadTab[]).map(t => (
-          <button key={t} style={tabStyle(t)} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-        <div style={{ flex:1 }} />
-        <button
-          style={{ ...btnOutline, fontSize:12 }}
-          onClick={() => setShowManual(true)}
-        >
-          + Manual
-        </button>
-        <button style={{ ...btnPrimary, fontSize:12, opacity: uploading ? 0.6 : 1 }}
-          onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-          {uploading ? `Uploading… ${uploadProgress}%` : '+ Upload'}
-        </button>
-        <input ref={fileInputRef} type="file" accept=".pdf" style={{ display:'none' }}
-          onChange={e => { const f = e.target.files?.[0]; handleFileSelect(f); e.target.value = ''; }} />
-      </div>
+    <div className="df-page df-reading-workspace" style={{ minHeight: 'calc(100vh - 130px)' }}>
+      <section className="df-read-hero">
+        <div className="df-read-hero-copy">
+          <span className="df-kicker">READING SYSTEM</span>
+          <h2>Keep one book moving, without losing the rest of your library.</h2>
+          <p>Your queue, active books, notes, and finished archive stay connected in one reading workspace.</p>
+          <div className="df-read-stat-row">
+            <span><b>{readingDocs.length}</b> reading</span>
+            <span><b>{queueCount}</b> queued</span>
+            <span><b>{finishedCount}</b> finished</span>
+            <span><b>{documents.length}</b> total</span>
+          </div>
+        </div>
 
-      <div style={{ padding:'1.5rem 1rem' }}>
-        {tab === 'insight' && (
-          <InsightTab docs={documents} setTab={setTab} onOpenDoc={d => openReader(d)} />
-        )}
-        {tab === 'queue' && (
-          <QueueTab docs={documents} onStartReading={handleStartReading}
-            fileInputRef={fileInputRef}
-            onOpenDoc={(d, addToReading) => {
-              if (addToReading) handleStartReading(d);
-              else openReader(d);
-            }} />
-        )}
-        {tab === 'reading' && (
-          <ReadingTab docs={documents} onOpenDoc={d => openReader(d)} />
-        )}
-        {tab === 'archive' && (
-          <ArchiveTab docs={documents} onOpenDoc={d => openReader(d)} />
-        )}
-        {tab === 'notebook' && (
-          <NotebookPage />
-        )}
-      </div>
-
-      {/* ── Manual book modal ── */}
-      {showManual && (
-        <ManualBookModal
-          onSave={handleManualSave}
-          onClose={() => setShowManual(false)}
-        />
-      )}
-
-      {/* ── Upload progress overlay ── */}
-      {uploading && (
-        <div style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 70,
-          background: 'var(--df-surface)', border: '1px solid var(--df-border)',
-          borderRadius: 12, padding: '16px 20px', width: 320,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-        }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 8,
-              background: 'rgba(79,110,247,0.15)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2v8M5 5l3-3 3 3" stroke="var(--df-accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 11v1a2 2 0 002 2h8a2 2 0 002-2v-1" stroke="var(--df-accent)" strokeWidth="1.5" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--df-text)', marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {uploadFileName || 'Uploading book…'}
+        <div className="df-read-spotlight">
+          {spotlight ? (
+            <>
+              <div className="df-read-spotlight-cover">
+                {spotlight.coverUrl ? <img src={spotlight.coverUrl} alt="" /> : <span>📖</span>}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--df-muted)' }}>
-                {(() => {
-                  const mb = (uploadFileSize / 1024 / 1024).toFixed(1);
-                  const loaded = ((uploadProgress / 100) * uploadFileSize / 1024 / 1024).toFixed(1);
-                  return `${loaded} MB of ${mb} MB`;
-                })()}
+              <div className="df-read-spotlight-copy">
+                <span className="df-kicker">CONTINUE READING</span>
+                <strong>{spotlight.title}</strong>
+                {spotlight.author && <small>{spotlight.author}</small>}
+                <div className="df-mini-progress"><i style={{ width: `${spotlightPct}%` }} /></div>
+                <div className="df-read-progress-meta"><span>Page {spotlight.lastPage}{spotlight.pageCount ? ` / ${spotlight.pageCount}` : ''}</span><b>{spotlightPct}%</b></div>
+                <button className="df-btn df-btn-primary" onClick={() => openReader(spotlight)}>Continue</button>
               </div>
-            </div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--df-accent)', flexShrink: 0 }}>
-              {uploadProgress}%
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div style={{ height: 6, background: 'var(--df-border)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{
-              height: '100%', borderRadius: 3,
-              background: 'var(--df-accent)',
-              width: `${uploadProgress}%`,
-              transition: 'width 0.3s ease',
-            }} />
-          </div>
-
-          {/* Speed + ETA */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--df-muted)' }}>
-            <span>
-              {uploadSpeed > 0
-                ? `${uploadSpeed > 1024 * 1024
-                    ? (uploadSpeed / 1024 / 1024).toFixed(1) + ' MB/s'
-                    : (uploadSpeed / 1024).toFixed(0) + ' KB/s'}`
-                : 'Calculating…'}
-            </span>
-            <span>
-              {uploadSpeed > 0 && uploadProgress < 100
-                ? (() => {
-                    const remaining = (uploadFileSize * (1 - uploadProgress / 100)) / uploadSpeed;
-                    if (remaining < 60) return `${Math.ceil(remaining)}s left`;
-                    return `${Math.ceil(remaining / 60)}m left`;
-                  })()
-                : uploadProgress === 100 ? 'Processing…' : ''}
-            </span>
-          </div>
-
-          {/* Decoded filename info */}
-          {uploadFileName && (
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--df-border)' }}>
-              <div style={{ fontSize: 10, color: 'var(--df-muted)', marginBottom: 3 }}>Detected from filename</div>
-              <div style={{ fontSize: 11, color: 'var(--df-text)' }}>📖 {uploadFileName}</div>
-            </div>
+            </>
+          ) : (
+            <div className="df-read-spotlight-empty"><span>📚</span><strong>No active book yet</strong><small>Move a book from Queue into Reading when you're ready.</small><button className="df-btn df-btn-secondary" onClick={() => setTab('queue')}>Open queue</button></div>
           )}
+        </div>
+      </section>
+
+      <section className="df-read-commandbar">
+        <div className="df-read-tabs">
+          {(['insight','queue','reading','archive','notebook'] as ReadTab[]).map((t) => (
+            <button key={t} className={tab === t ? 'is-active' : ''} onClick={() => setTab(t)}>
+              <span>{t === 'insight' ? 'Overview' : t.charAt(0).toUpperCase() + t.slice(1)}</span>
+              {t === 'queue' && <b>{queueCount}</b>}
+              {t === 'reading' && <b>{readingDocs.length}</b>}
+              {t === 'archive' && <b>{finishedCount}</b>}
+            </button>
+          ))}
+        </div>
+        <div className="df-inline-actions">
+          <button className="df-btn df-btn-secondary" onClick={() => setShowManual(true)}>+ Manual book</button>
+          <button className="df-btn df-btn-primary" onClick={() => fileInputRef.current?.click()} disabled={uploading}>{uploading ? `Uploading ${uploadProgress}%` : '+ Upload PDF'}</button>
+          <input ref={fileInputRef} type="file" accept=".pdf" style={{ display:'none' }} onChange={(e) => { const f = e.target.files?.[0]; handleFileSelect(f); e.target.value = ''; }} />
+        </div>
+      </section>
+
+      <section className="df-read-content">
+        {tab === 'insight' && <InsightTab docs={documents} setTab={setTab} onOpenDoc={(d) => openReader(d)} />}
+        {tab === 'queue' && <QueueTab docs={documents} onStartReading={handleStartReading} fileInputRef={fileInputRef} onOpenDoc={(d, addToReading) => { if (addToReading) handleStartReading(d); else openReader(d); }} />}
+        {tab === 'reading' && <ReadingTab docs={documents} onOpenDoc={(d) => openReader(d)} />}
+        {tab === 'archive' && <ArchiveTab docs={documents} onOpenDoc={(d) => openReader(d)} />}
+        {tab === 'notebook' && <NotebookPage />}
+      </section>
+
+      {showManual && <ManualBookModal onSave={handleManualSave} onClose={() => setShowManual(false)} />}
+
+      {uploading && (
+        <div className="df-upload-toast">
+          <div className="df-upload-toast-head"><span>↑</span><div><strong>{uploadFileName || 'Uploading book…'}</strong><small>{uploadProgress}% complete</small></div><b>{uploadProgress}%</b></div>
+          <div className="df-mini-progress"><i style={{ width: `${uploadProgress}%` }} /></div>
+          <div className="df-upload-meta">
+            <span>{uploadSpeed > 0 ? `${uploadSpeed > 1024 * 1024 ? (uploadSpeed / 1024 / 1024).toFixed(1) + ' MB/s' : (uploadSpeed / 1024).toFixed(0) + ' KB/s'}` : 'Calculating speed…'}</span>
+            <span>{uploadFileSize ? `${((uploadProgress / 100) * uploadFileSize / 1024 / 1024).toFixed(1)} / ${(uploadFileSize / 1024 / 1024).toFixed(1)} MB` : ''}</span>
+          </div>
         </div>
       )}
     </div>

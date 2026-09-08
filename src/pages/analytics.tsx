@@ -1774,10 +1774,22 @@ export default function AnalyticsPage() {
 
   return (
     <div className="df-page df-analytics-page max-w-screen-xl mx-auto">
+      <section className="df-insights-hero">
+        <div>
+          <span className="df-kicker">PATTERN RECOGNITION</span>
+          <h2>See what your routines are actually producing.</h2>
+          <p>Move between productivity, habits, fasting, and records without mixing their signals together.</p>
+        </div>
+        <div className="df-insights-hero-kpis">
+          <div><span>7-day completion</span><strong>{overallRate}%</strong></div>
+          <div><span>Planned</span><strong>{totalHours}h</strong></div>
+          <div><span>Fast success</span><strong>{fastSuccessRate}%</strong></div>
+        </div>
+      </section>
       
 
       {/* Main tabs */}
-      <div className="flex gap-2 mb-5 flex-wrap">
+      <div className="df-insights-tabs">
         {(
           [
             ['productivity', '📋 Productivity'],
@@ -1789,8 +1801,7 @@ export default function AnalyticsPage() {
           <button
             key={tab}
             onClick={() => setMainTab(tab)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors
-              ${mainTab === tab ? 'bg-brand-accent text-white' : 'bg-white dark:bg-gray-800 border dark:border-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+            className={mainTab === tab ? 'is-active' : ''}
           >
             {label}
           </button>

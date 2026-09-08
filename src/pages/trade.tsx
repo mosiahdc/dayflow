@@ -30,6 +30,14 @@ export default function TradePage() {
 
   return (
     <div className="df-trade-page">
+      <section className="df-trade-journey-head">
+        <div>
+          <span className="df-kicker">TRADING JOURNEY</span>
+          <h2>Separate the decision, the execution, and the result.</h2>
+          <p>Project Discipline protects the rules. Journal explains the decision. Calendar shows the rhythm. Trades preserves every position and underlying Exness order.</p>
+        </div>
+        <div className="df-trade-journey-meta"><span>{trades.length}</span><small>loaded trades</small></div>
+      </section>
       <div className="df-trade-subnav" role="tablist" aria-label="Trading sections">
         {tabs.map(({ id, label }) => (
           <button key={id} onClick={() => setActiveTab(id)} className={activeTab === id ? 'is-active' : ''} title={tabs.find((t) => t.id === id)?.hint}>

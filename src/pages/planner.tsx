@@ -210,8 +210,20 @@ export default function PlannerPage() {
 
         {/* Main content */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
+          <section className="df-planner-hero">
+            <div>
+              <span className="df-kicker">PLANNING WORKSPACE</span>
+              <h2>Make the day visible before you start moving through it.</h2>
+              <p>Switch between execution, weekly capacity, and monthly context without losing your task library.</p>
+            </div>
+            <button className="df-planner-library-toggle" onClick={toggleSidebar}>
+              <span>▦</span><div><b>{sidebarOpen ? 'Hide library' : 'Open library'}</b><small>Reusable tasks & work hours</small></div>
+            </button>
+          </section>
+
           {/* Planner sub-nav: Day / Week / Month */}
-          <div className="df-segmented shrink-0">
+          <div className="df-planner-viewbar">
+            <div className="df-segmented shrink-0">
             {SUB_TABS.map(({ view, label, icon }) => (
               <button
                 key={view}
@@ -222,27 +234,29 @@ export default function PlannerPage() {
                 {label}
               </button>
             ))}
+            </div>
+            <span className="df-chip is-blue">{subView === 'day' ? 'Execution' : subView === 'week' ? 'Capacity' : 'Context'}</span>
           </div>
 
           {subView === 'day' && (
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 min-w-0 flex flex-col gap-4">
+            <div className="df-planner-day-layout">
+              <div className="df-planner-day-main">
                 <DateNav />
                 <GlanceBar date={selectedDate} />
                 <DayView date={selectedDate} scheduledTasks={scheduledTasks} />
               </div>
-              <div className="lg:w-72 shrink-0 flex flex-col gap-4">
+              <aside className="df-planner-day-rail">
                 <PriorityPanel />
                 <ReadingStatsWidget />
                 <ReflectionPanel date={selectedDate} />
-              </div>
+              </aside>
             </div>
           )}
 
           {subView === 'week' && (
-            <div className="flex flex-col gap-3">
+            <div className="df-planner-period-view">
               {/* Week nav */}
-              <div className="flex items-center justify-between gap-2">
+              <div className="df-period-nav">
                 <button
                   onClick={() => goWeek(-1)}
                   className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600 hover:border-brand-accent transition-colors"
@@ -286,9 +300,9 @@ export default function PlannerPage() {
           )}
 
           {subView === 'month' && (
-            <div className="flex flex-col gap-3">
+            <div className="df-planner-period-view">
               {/* Month nav */}
-              <div className="flex items-center justify-between">
+              <div className="df-period-nav">
                 <button
                   onClick={() => goMonth(-1)}
                   className="px-3 py-1 rounded border text-sm dark:text-white dark:border-gray-600"

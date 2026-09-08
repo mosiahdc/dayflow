@@ -137,271 +137,174 @@ export default function FastingTracker() {
     setEditingStart(false);
   };
 
-  // ── Circular progress ─────────────────────────────────────────────────────
-  const R = 70;
-  const C = 2 * Math.PI * R;
-  const arc = C * (1 - progress);
 
   // ── Render ────────────────────────────────────────────────────────────────
+  const recentSessions = completedSessions.filter((s) => differenceInDays(now, parseISO(s.endedAt!)) <= 6);
+  const avgSeconds = completedSessions.length
+    ? Math.round(completedSessions.reduce((sum, s) => sum + differenceInSeconds(parseISO(s.endedAt!), parseISO(s.startedAt)), 0) / completedSessions.length)
+    : 0;
+  const bestSeconds = completedSessions.reduce((best, s) => Math.max(best, differenceInSeconds(parseISO(s.endedAt!), parseISO(s.startedAt))), 0);
+  const goalHits = completedSessions.filter((s) => differenceInSeconds(parseISO(s.endedAt!), parseISO(s.startedAt)) >= s.goalHours * 3600).length;
+  const goalRate = completedSessions.length ? Math.round((goalHits / completedSessions.length) * 100) : 0;
+  const progressPct = Math.min(100, Math.round(progress * 100));
+  const R2 = 92;
+  const C2 = 2 * Math.PI * R2;
+  const arc2 = C2 * (1 - progress);
+
   return (
-    <div className="df-card df-fast-card overflow-hidden" style={{ padding: 0 }}>
-      {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--df-border)' }}>
-        <div className="flex items-center gap-2">
-          <span className="df-kicker">FASTING</span>
-          <span className="font-semibold text-sm" style={{ color: 'var(--df-text)' }}>Current window</span>
-          {streak > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--df-amber-soft)', color: 'var(--df-amber)' }}>
-              🔥 {streak} day streak
-            </span>
-          )}
+    <div className="df-fast-workspace">
+      <section className="df-fast-hero-strip">
+        <div>
+          <span className="df-kicker">FASTING RHYTHM</span>
+          <h2>{active ? 'Stay inside the window.' : 'Choose the window that fits your day.'}</h2>
+          <p>{active ? 'The timer is running. Keep the decision simple and let the clock do the work.' : 'Start with a realistic goal and use your history to adjust over time.'}</p>
         </div>
-      </div>
+        <div className="df-inline-actions">
+          {streak > 0 && <span className="df-chip is-amber">🔥 {streak} day streak</span>}
+          <span className="df-chip is-blue">{recentSessions.length} fasts · last 7 days</span>
+        </div>
+      </section>
 
-      {loading && <div className="p-6 text-center text-sm text-gray-400">Loading…</div>}
-
-      {/* ── TIMER VIEW ── */}
-      {!loading && (
-        <div className="df-fast-body p-6 flex flex-col items-center gap-4">
-          {/* Circular progress ring */}
-          <div className="relative">
-            <svg width="180" height="180" className="-rotate-90">
-              <circle
-                cx="90"
-                cy="90"
-                r={R}
-                fill="none"
-                stroke="var(--df-surface3)"
-                strokeWidth="10"
-                className="dark:stroke-gray-700"
-              />
-              <circle
-                cx="90"
-                cy="90"
-                r={R}
-                fill="none"
-                stroke={goalReached ? 'var(--df-green)' : 'var(--df-accent)'}
-                strokeWidth="10"
-                strokeLinecap="round"
-                strokeDasharray={C}
-                strokeDashoffset={arc}
-                className="transition-all duration-1000"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              {active ? (
-                <>
-                  <span className="font-mono font-bold text-2xl dark:text-white">
-                    {fmtDuration(elapsed)}
-                  </span>
-                  <span className="text-xs text-gray-400 mt-0.5">
-                    {goalReached ? '✅ Goal reached!' : `of ${active.goalHours}h goal`}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-3xl">🍽️</span>
-                  <span className="text-xs text-gray-400 mt-1">Not fasting</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Active fast info */}
-          {active && (
-            <div className="df-fast-info w-full rounded-xl p-3 flex flex-col gap-2">
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Started</span>
-                <span className="font-medium dark:text-white">
-                  {format(parseISO(active.startedAt), 'MMM d, h:mm a')}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Goal</span>
-                <span className="font-medium dark:text-white">{active.goalHours}h fast</span>
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                <span>Break fast at</span>
-                <span className="font-medium text-indigo-500">
-                  {format(
-                    new Date(parseISO(active.startedAt).getTime() + active.goalHours * 3600000),
-                    'MMM d, h:mm a'
-                  )}
-                </span>
+      {loading ? (
+        <div className="df-page-section df-empty-state"><strong>Loading fasting data…</strong></div>
+      ) : (
+        <>
+          <section className="df-fast-dashboard">
+            <div className="df-fast-timer-card">
+              <div className="df-fast-timer-label">
+                <span className="df-kicker">CURRENT WINDOW</span>
+                <span className={`df-pill ${goalReached ? 'is-green' : 'is-blue'}`}>{active ? `${progressPct}% complete` : `${goalHours}h target`}</span>
               </div>
 
-              {/* Edit start time */}
-              {editingStart ? (
-                <div className="flex gap-2 mt-1">
-                  <input
-                    type="datetime-local"
-                    value={startInput}
-                    onChange={(e) => setStartInput(e.target.value)}
-                    className="flex-1 text-xs border rounded px-2 py-1 dark:bg-gray-600 dark:text-white dark:border-gray-500"
+              <div className="df-fast-ring-wrap">
+                <svg width="236" height="236" className="-rotate-90" aria-label="Fasting progress">
+                  <circle cx="118" cy="118" r={R2} fill="none" stroke="var(--df-surface3)" strokeWidth="14" />
+                  <circle
+                    cx="118"
+                    cy="118"
+                    r={R2}
+                    fill="none"
+                    stroke={goalReached ? 'var(--df-green)' : 'var(--df-accent)'}
+                    strokeWidth="14"
+                    strokeLinecap="round"
+                    strokeDasharray={C2}
+                    strokeDashoffset={arc2}
+                    className="transition-all duration-1000"
                   />
-                  <button
-                    onClick={confirmEditStart}
-                    className="text-xs bg-indigo-500 text-white px-2 py-1 rounded"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingStart(false)}
-                    className="text-xs text-gray-400 px-1"
-                  >
-                    ✕
-                  </button>
+                </svg>
+                <div className="df-fast-ring-center">
+                  {active ? (
+                    <>
+                      <strong>{fmtDuration(elapsed)}</strong>
+                      <span>{goalReached ? 'Goal reached' : `of ${active.goalHours} hours`}</span>
+                    </>
+                  ) : (
+                    <>
+                      <strong>{goalHours}h</strong>
+                      <span>ready to start</span>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <button
-                  onClick={handleEditStart}
-                  className="text-xs text-indigo-400 hover:text-indigo-600 text-left mt-0.5"
-                >
-                  ✏️ Adjust start time
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Goal selector (only when not active) */}
-          {!active && (
-            <div className="w-full">
-              <p className="text-xs text-gray-400 mb-2 text-center">Select fasting goal</p>
-              <div className="grid grid-cols-4 gap-1.5">
-                {GOAL_OPTIONS.map((h) => (
-                  <button
-                    key={h}
-                    onClick={() => setGoalHours(h)}
-                    className={`df-fast-goal ${goalHours === h ? 'is-active' : ''}`}
-                  >
-                    {h}h
-                  </button>
-                ))}
               </div>
-            </div>
-          )}
 
-          {/* Stop — edit end time */}
-          {editingStop && (
-            <div className="df-fast-info w-full rounded-xl p-3 flex flex-col gap-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Adjust stop time</p>
-              <div className="flex gap-2">
-                <input
-                  type="datetime-local"
-                  value={stopInput}
-                  onChange={(e) => setStopInput(e.target.value)}
-                  className="flex-1 text-xs border rounded px-2 py-1 dark:bg-gray-600 dark:text-white dark:border-gray-500"
-                />
-                <button
-                  onClick={confirmStop}
-                  className="text-xs bg-green-500 text-white px-2 py-1 rounded"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => setEditingStop(false)}
-                  className="text-xs text-gray-400 px-1"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Start / Stop buttons */}
-          {!editingStop && (
-            <div className="flex gap-3 w-full">
-              {!active ? (
-                <button
-                  onClick={handleStart}
-                  className="df-fast-action df-fast-action-start flex-1"
-                >
-                  🚀 Start Fast
-                </button>
-              ) : (
-                <button
-                  onClick={handleStop}
-                  className="df-fast-action df-fast-action-stop flex-1"
-                >
-                  🛑 Stop Fast
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── HISTORY VIEW ── */}
-      {/* ── HISTORY ── */}
-      {!loading && (
-        <div className="flex flex-col">
-          <div className="px-4 pt-3 pb-1 border-t dark:border-gray-700">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              Fasting History
-            </h3>
-          </div>
-          {completedSessions.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">No completed fasts yet.</p>
-          ) : (
-            <div className="divide-y dark:divide-gray-700">
-              {completedSessions.map((s) => {
-                const dur = differenceInSeconds(parseISO(s.endedAt!), parseISO(s.startedAt));
-                const pct = Math.min(100, Math.round((dur / (s.goalHours * 3600)) * 100));
-                return (
-                  <div key={s.id} className="df-fast-history-row px-4 py-3 flex items-center gap-3">
-                    {/* Progress bar */}
-                    <div className="w-10 h-10 shrink-0 relative">
-                      <svg viewBox="0 0 40 40" className="-rotate-90 w-full h-full">
-                        <circle
-                          cx="20"
-                          cy="20"
-                          r="16"
-                          fill="none"
-                          stroke="var(--df-surface3)"
-                          strokeWidth="4"
-                          className="dark:stroke-gray-600"
-                        />
-                        <circle
-                          cx="20"
-                          cy="20"
-                          r="16"
-                          fill="none"
-                          stroke={pct >= 100 ? 'var(--df-green)' : 'var(--df-accent)'}
-                          strokeWidth="4"
-                          strokeLinecap="round"
-                          strokeDasharray={2 * Math.PI * 16}
-                          strokeDashoffset={2 * Math.PI * 16 * (1 - pct / 100)}
-                        />
-                      </svg>
-                      <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold dark:text-white">
-                        {pct}%
-                      </span>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold dark:text-white">
-                        {fmtHoursMinutes(dur)}
-                        {pct >= 100 && <span className="ml-1 text-green-500 text-xs">✅</span>}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {format(parseISO(s.startedAt), 'MMM d, h:mm a')} →{' '}
-                        {format(parseISO(s.endedAt!), 'h:mm a')}
-                      </p>
-                      <p className="text-xs text-gray-400">Goal: {s.goalHours}h</p>
-                    </div>
-
-                    <button
-                      onClick={() => deletSession(s.id)}
-                      className="text-gray-300 hover:text-red-400 text-sm shrink-0"
-                    >
-                      ×
+              {!active && (
+                <div className="df-fast-goal-grid">
+                  {GOAL_OPTIONS.map((h) => (
+                    <button key={h} onClick={() => setGoalHours(h)} className={`df-fast-goal ${goalHours === h ? 'is-active' : ''}`}>
+                      <b>{h}h</b><span>{h < 16 ? 'light' : h <= 20 ? 'standard' : 'extended'}</span>
                     </button>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              )}
+
+              {!editingStop && (
+                !active ? (
+                  <button onClick={handleStart} className="df-fast-primary-action">Start fast</button>
+                ) : (
+                  <button onClick={handleStop} className="df-fast-primary-action is-stop">End fast</button>
+                )
+              )}
             </div>
-          )}
-        </div>
+
+            <div className="df-fast-side">
+              <div className="df-fast-stat-grid">
+                <div className="df-fast-stat"><span>Average</span><strong>{avgSeconds ? fmtHoursMinutes(avgSeconds) : '—'}</strong><small>all completed fasts</small></div>
+                <div className="df-fast-stat"><span>Goal rate</span><strong>{goalRate}%</strong><small>{goalHits} goals reached</small></div>
+                <div className="df-fast-stat"><span>Best fast</span><strong>{bestSeconds ? fmtHoursMinutes(bestSeconds) : '—'}</strong><small>longest completed</small></div>
+                <div className="df-fast-stat"><span>Total</span><strong>{completedSessions.length}</strong><small>completed sessions</small></div>
+              </div>
+
+              <div className="df-fast-window-card">
+                <div className="df-fast-window-head"><span className="df-kicker">WINDOW DETAILS</span><strong>{active ? 'Active now' : 'Next fast'}</strong></div>
+                {active ? (
+                  <>
+                    <div className="df-fast-detail-row"><span>Started</span><b>{format(parseISO(active.startedAt), 'MMM d, h:mm a')}</b></div>
+                    <div className="df-fast-detail-row"><span>Target</span><b>{active.goalHours}h fast</b></div>
+                    <div className="df-fast-detail-row"><span>Break fast at</span><b>{format(new Date(parseISO(active.startedAt).getTime() + active.goalHours * 3600000), 'MMM d, h:mm a')}</b></div>
+                    <button className="df-link-btn" onClick={handleEditStart}>Adjust start time →</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="df-fast-detail-row"><span>Selected goal</span><b>{goalHours} hours</b></div>
+                    <div className="df-fast-detail-row"><span>Suggested finish</span><b>{format(new Date(now.getTime() + goalHours * 3600000), 'MMM d, h:mm a')}</b></div>
+                    <p className="df-section-copy" style={{ marginTop: 10 }}>You can adjust the start time after the fast begins.</p>
+                  </>
+                )}
+
+                {editingStart && active && (
+                  <div className="df-fast-edit-box">
+                    <label>Start time</label>
+                    <input type="datetime-local" value={startInput} onChange={(e) => setStartInput(e.target.value)} />
+                    <div className="df-inline-actions">
+                      <button className="df-btn df-btn-primary" onClick={confirmEditStart}>Save</button>
+                      <button className="df-btn df-btn-secondary" onClick={() => setEditingStart(false)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {editingStop && active && (
+                  <div className="df-fast-edit-box is-stop">
+                    <label>Stop time</label>
+                    <input type="datetime-local" value={stopInput} onChange={(e) => setStopInput(e.target.value)} />
+                    <div className="df-inline-actions">
+                      <button className="df-btn df-btn-primary" onClick={confirmStop}>Confirm end</button>
+                      <button className="df-btn df-btn-secondary" onClick={() => setEditingStop(false)}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="df-fast-history-card">
+            <div className="df-fast-history-head">
+              <div><span className="df-kicker">HISTORY</span><h3>Previous fasting windows</h3></div>
+              <span className="df-chip">{completedSessions.length} sessions</span>
+            </div>
+            {completedSessions.length === 0 ? (
+              <div className="df-empty-state" style={{ margin: 16 }}><span style={{ fontSize: 28 }}>◷</span><strong>No completed fasts yet.</strong><p>Your completed windows will build a history here.</p></div>
+            ) : (
+              <div className="df-fast-history-list">
+                {completedSessions.map((session) => {
+                  const dur = differenceInSeconds(parseISO(session.endedAt!), parseISO(session.startedAt));
+                  const pct = Math.min(100, Math.round((dur / (session.goalHours * 3600)) * 100));
+                  return (
+                    <div key={session.id} className="df-fast-history-item">
+                      <div className={`df-fast-history-score ${pct >= 100 ? 'is-hit' : ''}`}>{pct}%</div>
+                      <div className="df-fast-history-main">
+                        <strong>{fmtHoursMinutes(dur)}</strong>
+                        <span>{format(parseISO(session.startedAt), 'MMM d, h:mm a')} → {format(parseISO(session.endedAt!), 'h:mm a')}</span>
+                      </div>
+                      <div className="df-fast-history-goal"><span>Goal</span><b>{session.goalHours}h</b></div>
+                      <div className="df-mini-progress"><i style={{ width: `${pct}%`, background: pct >= 100 ? 'var(--df-green)' : undefined }} /></div>
+                      <button className="df-icon-button" onClick={() => deletSession(session.id)} title="Delete session">×</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
       )}
     </div>
   );
