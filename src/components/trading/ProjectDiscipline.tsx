@@ -445,6 +445,48 @@ export default function ProjectDiscipline({ trades }: Props) {
     return maxDd;
   }, [profitCurve]);
 
+  const profitCurveColored = useMemo(() => {
+    type ProfitPoint = { date: string; label: string; profit: number };
+    type ColoredProfitPoint = ProfitPoint & {
+      positiveProfit: number | null;
+      negativeProfit: number | null;
+    };
+
+    const decorate = (point: ProfitPoint): ColoredProfitPoint => ({
+      ...point,
+      positiveProfit: point.profit >= 0 ? point.profit : null,
+      negativeProfit: point.profit <= 0 ? point.profit : null,
+    });
+
+    const firstPoint = profitCurve[0];
+    if (!firstPoint) return [];
+
+    const output: ColoredProfitPoint[] = [decorate(firstPoint)];
+
+    for (let i = 1; i < profitCurve.length; i += 1) {
+      const prev = profitCurve[i - 1];
+      const curr = profitCurve[i];
+      if (!prev || !curr) continue;
+
+      const crossedZero =
+        (prev.profit < 0 && curr.profit > 0) || (prev.profit > 0 && curr.profit < 0);
+
+      if (crossedZero) {
+        output.push({
+          date: `${prev.date} → ${curr.date}`,
+          label: '',
+          profit: 0,
+          positiveProfit: 0,
+          negativeProfit: 0,
+        });
+      }
+
+      output.push(decorate(curr));
+    }
+
+    return output;
+  }, [profitCurve]);
+
   const handleTxSave = async () => {
     const amt = parseFloat(txAmount);
     if (!txModal || isNaN(amt) || amt === 0) return;
@@ -616,7 +658,6 @@ export default function ProjectDiscipline({ trades }: Props) {
                   stroke="#22c55e"
                   strokeWidth={2.5}
                   fill="url(#profitFillPositive)"
-                  connectNulls
                 />
                 <Area
                   type="monotone"
@@ -624,7 +665,6 @@ export default function ProjectDiscipline({ trades }: Props) {
                   stroke="#ef4444"
                   strokeWidth={2.5}
                   fill="url(#profitFillNegative)"
-                  connectNulls
                 />
               </AreaChart>
             </ResponsiveContainer>
