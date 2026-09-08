@@ -565,7 +565,7 @@ export default function ProjectDiscipline({ trades }: Props) {
         </StatBox>
 
         <StatBox label="Net Profit Curve" highlight>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-2 gap-2 mb-3">
             <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
               <p className="text-[10px] text-brand-muted">Net profit</p>
               <p className={`text-sm font-bold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
@@ -589,11 +589,15 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
           <div className="h-[240px] w-full rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={profitCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={profitCurveColored} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={netProfit >= 0 ? '#22c55e' : '#ef4444'} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={netProfit >= 0 ? '#22c55e' : '#ef4444'} stopOpacity={0.02} />
+                  <linearGradient id="profitFillPositive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="profitFillNegative" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ef4444" stopOpacity={0.12} />
+                    <stop offset="100%" stopColor="#ef4444" stopOpacity={0.35} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
@@ -608,10 +612,19 @@ export default function ProjectDiscipline({ trades }: Props) {
                 />
                 <Area
                   type="monotone"
-                  dataKey="profit"
-                  stroke={netProfit >= 0 ? '#22c55e' : '#ef4444'}
+                  dataKey="positiveProfit"
+                  stroke="#22c55e"
                   strokeWidth={2.5}
-                  fill="url(#profitFill)"
+                  fill="url(#profitFillPositive)"
+                  connectNulls
+                />
+                <Area
+                  type="monotone"
+                  dataKey="negativeProfit"
+                  stroke="#ef4444"
+                  strokeWidth={2.5}
+                  fill="url(#profitFillNegative)"
+                  connectNulls
                 />
               </AreaChart>
             </ResponsiveContainer>
