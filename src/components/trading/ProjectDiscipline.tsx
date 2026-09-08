@@ -575,7 +575,7 @@ export default function ProjectDiscipline({ trades }: Props) {
                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} minTickGap={16} />
                 <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => `${Number(v).toFixed(0)}`} />
                 <Tooltip
-                  formatter={(value: number) => [`${Number(value).toFixed(2)} USD`, 'Equity']}
+                  formatter={(value) => [`${Number(value ?? 0).toFixed(2)} USD`, 'Equity']}
                   labelFormatter={(label, payload) => payload?.[0]?.payload?.date ?? String(label)}
                   contentStyle={{ borderRadius: 12, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(9,12,20,.95)' }}
                   labelStyle={{ color: '#cbd5e1' }}
