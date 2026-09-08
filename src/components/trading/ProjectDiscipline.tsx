@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
@@ -45,11 +45,6 @@ function currentWeekMondayUTC8(nowMs = Date.now()): string {
     0
   );
   return new Date(mondayPhtMidnight).toISOString().slice(0, 10);
-}
-
-function phtMidnightToUtcMs(date: string): number {
-  const [year, month, day] = date.split('-').map(Number);
-  return Date.UTC(year!, month! - 1, day!, 0, 0, 0) - PHT_OFFSET_MS;
 }
 
 
@@ -377,18 +372,21 @@ export default function ProjectDiscipline({ trades }: Props) {
     return Math.round((projectTrades.filter((t) => t.realizedPnl > 0).length / projectTrades.length) * 100);
   }, [projectTrades]);
 
-  const equityCurve = useMemo(() => {
-    const events: { ts: number; date: string; type: 'tx' | 'trade'; amount: number }[] = [];
-    const startMs = phtMidnightToUtcMs('2026-08-01');
+  // Trading performance curve: cumulative closed trading PNL plus funding fees only.
+  // Deposits, withdrawals, D-NULL / Null compensation, transfers and Initial Balance
+  // are deliberately excluded so this curve answers one question: "Am I profitable from trading?"
+  const profitCurve = useMemo(() => {
+    const events: { ts: number; date: string; amount: number; type: 'trade' | 'fee' }[] = [];
 
     for (const tx of projectTransactions) {
+      if (tx.type !== 'funding_fee') continue;
       const ts = new Date(tx.createdAt).getTime();
       if (!Number.isFinite(ts)) continue;
       events.push({
         ts,
         date: phtCalendarDate(ts),
-        type: 'tx',
         amount: tx.amount,
+        type: 'fee',
       });
     }
 
@@ -399,44 +397,53 @@ export default function ProjectDiscipline({ trades }: Props) {
       events.push({
         ts,
         date: trade.closeTime.slice(0, 10),
-        type: 'trade',
         amount: trade.realizedPnl,
+        type: 'trade',
       });
     }
 
-    events.sort((a, b) => a.ts - b.ts || (a.type === 'tx' ? -1 : 1));
+    events.sort((a, b) => a.ts - b.ts || (a.type === 'fee' ? -1 : 1));
 
-    const points: { date: string; label: string; equity: number }[] = [];
-    let running = initialBalance;
-    let lastDate = '2026-08-01';
-    points.push({ date: lastDate, label: format(parseISO(lastDate), 'MMM d'), equity: running });
+    const points: { date: string; label: string; profit: number }[] = [
+      { date: '2026-08-01', label: 'Aug 1', profit: 0 },
+    ];
+    let running = 0;
 
     for (const event of events) {
       running += event.amount;
-      lastDate = event.date;
       const existing = points[points.length - 1];
       if (existing && existing.date === event.date) {
-        existing.equity = running;
+        existing.profit = running;
       } else {
-        points.push({ date: event.date, label: format(parseISO(event.date), 'MMM d'), equity: running });
+        points.push({
+          date: event.date,
+          label: format(parseISO(event.date), 'MMM d'),
+          profit: running,
+        });
       }
     }
 
-    if (points.length === 1 && Date.now() > startMs) {
-      points.push({ date: today, label: format(parseISO(today), 'MMM d'), equity: running });
+    if (points.length === 1 && today !== '2026-08-01') {
+      points.push({ date: today, label: format(parseISO(today), 'MMM d'), profit: 0 });
     }
 
     return points;
-  }, [initialBalance, projectTransactions, projectTrades, today]);
+  }, [projectTransactions, projectTrades, today]);
 
-  const equityPeak = useMemo(
-    () => (equityCurve.length ? Math.max(...equityCurve.map((point) => point.equity)) : balance),
-    [equityCurve, balance]
+  const peakProfit = useMemo(
+    () => Math.max(0, ...profitCurve.map((point) => point.profit)),
+    [profitCurve]
   );
-  const equityLow = useMemo(
-    () => (equityCurve.length ? Math.min(...equityCurve.map((point) => point.equity)) : balance),
-    [equityCurve, balance]
-  );
+
+  const maxDrawdown = useMemo(() => {
+    let peak = 0;
+    let maxDd = 0;
+    for (const point of profitCurve) {
+      peak = Math.max(peak, point.profit);
+      maxDd = Math.max(maxDd, peak - point.profit);
+    }
+    return maxDd;
+  }, [profitCurve]);
 
   const handleTxSave = async () => {
     const amt = parseFloat(txAmount);
@@ -466,8 +473,8 @@ export default function ProjectDiscipline({ trades }: Props) {
       <section className="df-discipline-hero">
         <div>
           <span className="df-kicker">PROJECT DISCIPLINE · SINCE AUG 1</span>
-          <h2>Track the account like a real trading desk: balance, equity curve, and execution flow.</h2>
-          <p>Weekly parameters and position margin are removed from this screen. The focus is now balance reconciliation, equity growth, and a cleaner trading log.</p>
+          <h2>Track the account like a real trading desk: balance, net profit, and execution flow.</h2>
+          <p>Account balance stays separate from trading performance, so deposits and withdrawals never distort whether your strategy is actually profitable.</p>
         </div>
         <div className="df-discipline-hero-stats">
           <div><span>Live balance</span><strong>{balance.toFixed(2)} USD</strong></div>
@@ -557,50 +564,61 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
         </StatBox>
 
-        <StatBox label="Equity Curve" highlight>
+        <StatBox label="Net Profit Curve" highlight>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-3">
             <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
-              <p className="text-[10px] text-brand-muted">Current equity</p>
-              <p className={`text-sm font-bold ${balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{balance >= 0 ? '+' : ''}{balance.toFixed(2)}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
-              <p className="text-[10px] text-brand-muted">Peak equity</p>
-              <p className="text-sm font-bold dark:text-white">{equityPeak.toFixed(2)}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
               <p className="text-[10px] text-brand-muted">Net profit</p>
-              <p className={`text-sm font-bold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{netProfit >= 0 ? '+' : ''}{netProfit.toFixed(2)}</p>
+              <p className={`text-sm font-bold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                {netProfit >= 0 ? '+' : ''}{netProfit.toFixed(2)}
+              </p>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
-              <p className="text-[10px] text-brand-muted">Net cash flow</p>
-              <p className={`text-sm font-bold ${txNet >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{txNet >= 0 ? '+' : ''}{txNet.toFixed(2)}</p>
+              <p className="text-[10px] text-brand-muted">Peak profit</p>
+              <p className="text-sm font-bold text-green-600 dark:text-green-400">+{peakProfit.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+              <p className="text-[10px] text-brand-muted">Max drawdown</p>
+              <p className={`text-sm font-bold ${maxDrawdown > 0 ? 'text-red-500 dark:text-red-400' : 'dark:text-white'}`}>
+                {maxDrawdown > 0 ? '-' : ''}{maxDrawdown.toFixed(2)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+              <p className="text-[10px] text-brand-muted">Account balance</p>
+              <p className="text-sm font-bold dark:text-white">{balance.toFixed(2)}</p>
             </div>
           </div>
           <div className="h-[240px] w-full rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={equityCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <AreaChart data={profitCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
+                  <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={netProfit >= 0 ? '#22c55e' : '#ef4444'} stopOpacity={0.35} />
+                    <stop offset="100%" stopColor={netProfit >= 0 ? '#22c55e' : '#ef4444'} stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <ReferenceLine y={0} stroke="rgba(148,163,184,0.45)" strokeDasharray="4 4" />
                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} minTickGap={16} />
-                <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => `${Number(v).toFixed(0)}`} />
+                <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} width={60} tickFormatter={(v) => `${Number(v).toFixed(0)}`} />
                 <Tooltip
-                  formatter={(value) => [`${Number(value ?? 0).toFixed(2)} USD`, 'Equity']}
+                  formatter={(value) => [`${Number(value ?? 0).toFixed(2)} USD`, 'Net Profit']}
                   labelFormatter={(label, payload) => payload?.[0]?.payload?.date ?? String(label)}
                   contentStyle={{ borderRadius: 12, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(9,12,20,.95)' }}
                   labelStyle={{ color: '#cbd5e1' }}
                 />
-                <Area type="monotone" dataKey="equity" stroke="#22c55e" strokeWidth={2.5} fill="url(#equityFill)" />
+                <Area
+                  type="monotone"
+                  dataKey="profit"
+                  stroke={netProfit >= 0 ? '#22c55e' : '#ef4444'}
+                  strokeWidth={2.5}
+                  fill="url(#profitFill)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-2 flex items-center justify-between text-[10px] text-brand-muted">
-            <span>Project low: {equityLow.toFixed(2)}</span>
-            <span>{equityCurve.length} equity point{equityCurve.length !== 1 ? 's' : ''}</span>
+          <div className="mt-2 flex items-center justify-between gap-3 text-[10px] text-brand-muted flex-wrap">
+            <span>Trading only · deposits, withdrawals, D-NULL and Initial Balance excluded</span>
+            <span>{profitCurve.length} performance point{profitCurve.length !== 1 ? 's' : ''}</span>
           </div>
         </StatBox>
       </section>
