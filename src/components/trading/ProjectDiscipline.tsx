@@ -362,6 +362,7 @@ export default function ProjectDiscipline({ trades }: Props) {
   const txNet = depositsTotal + withdrawalsTotal + fundingFeesTotal + nullCompensationTotal;
 
   const projectPnl = useMemo(() => dailySummary.reduce((sum, d) => sum + d.pnl, 0), [dailySummary]);
+  const netProfit = projectPnl + fundingFeesTotal;
   const balance = initialBalance + txNet + projectPnl;
 
   const weekMondayDate = currentWeekMondayUTC8();
@@ -470,6 +471,7 @@ export default function ProjectDiscipline({ trades }: Props) {
         </div>
         <div className="df-discipline-hero-stats">
           <div><span>Live balance</span><strong>{balance.toFixed(2)} USD</strong></div>
+          <div><span>Net profit</span><strong className={netProfit >= 0 ? 'is-positive' : 'is-negative'}>{netProfit >= 0 ? '+' : ''}{netProfit.toFixed(2)} USD</strong></div>
           <div><span>This week P&amp;L</span><strong className={currentWeekPnl >= 0 ? 'is-positive' : 'is-negative'}>{currentWeekPnl >= 0 ? '+' : ''}{currentWeekPnl.toFixed(2)}</strong></div>
           <div><span>Win rate</span><strong>{winRate}%</strong></div>
         </div>
@@ -477,6 +479,14 @@ export default function ProjectDiscipline({ trades }: Props) {
 
       <section className="df-discipline-cockpit">
         <StatBox label="Balance">
+          <div className="mb-2 rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+            <p className="text-[10px] text-brand-muted">Net profit</p>
+            <p className={`text-base font-bold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+              {netProfit >= 0 ? '+' : ''}{netProfit.toFixed(2)}
+              <span className="text-[10px] font-normal text-brand-muted ml-1">USD</span>
+            </p>
+            <p className="mt-1 text-[9px] text-brand-muted">Ignores deposits, withdrawals, and null compensation. Uses closed trading PNL plus fees.</p>
+          </div>
           <p
             className={`text-xl font-bold ${balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
           >
@@ -548,7 +558,7 @@ export default function ProjectDiscipline({ trades }: Props) {
         </StatBox>
 
         <StatBox label="Equity Curve" highlight>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-3">
             <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
               <p className="text-[10px] text-brand-muted">Current equity</p>
               <p className={`text-sm font-bold ${balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{balance >= 0 ? '+' : ''}{balance.toFixed(2)}</p>
@@ -556,6 +566,10 @@ export default function ProjectDiscipline({ trades }: Props) {
             <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
               <p className="text-[10px] text-brand-muted">Peak equity</p>
               <p className="text-sm font-bold dark:text-white">{equityPeak.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+              <p className="text-[10px] text-brand-muted">Net profit</p>
+              <p className={`text-sm font-bold ${netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{netProfit >= 0 ? '+' : ''}{netProfit.toFixed(2)}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
               <p className="text-[10px] text-brand-muted">Net cash flow</p>
