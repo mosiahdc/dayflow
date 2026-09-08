@@ -1596,10 +1596,9 @@
 .df-discipline-hero-stats strong { margin-top: 5px; font-size: 13px; letter-spacing: -.02em; }
 .df-discipline-hero-stats strong.is-positive { color: var(--df-green); }
 .df-discipline-hero-stats strong.is-negative { color: var(--df-red); }
-.df-discipline-cockpit { display: grid; grid-template-columns: 1.15fr .85fr; grid-template-rows: auto auto; gap: 12px; }
-.df-discipline-cockpit .df-discipline-balance { grid-row: 1 / span 2; min-height: 100%; }
-.df-discipline-cockpit .df-discipline-weekly-parameters,
-.df-discipline-cockpit .df-discipline-position-margin { min-height: 0; }
+.df-discipline-cockpit { display: grid; grid-template-columns: minmax(320px, .95fr) minmax(420px, 1.05fr); gap: 12px; align-items: stretch; }
+.df-discipline-cockpit .df-discipline-balance,
+.df-discipline-cockpit .df-discipline-equity-curve { min-height: 100%; }
 .df-discipline-log-layout { display: flex; flex-direction: column; gap: 12px; min-height: 520px; }
 .df-daily-summary-strip { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .df-daily-summary-strip > p { flex: 0 0 auto; }
@@ -1713,8 +1712,7 @@
   .df-review-save-bar .df-btn { width: 100%; }
 
   .df-discipline-hero-stats { grid-template-columns: 1fr; }
-  .df-discipline-cockpit { grid-template-columns: 1fr; grid-template-rows: auto; }
-  .df-discipline-cockpit .df-discipline-balance { grid-row: auto; }
+  .df-discipline-cockpit { grid-template-columns: 1fr; }
   .df-daily-summary-strip { align-items: stretch; flex-direction: column; }
   .df-daily-summary-items > button { min-width: 138px; }
 

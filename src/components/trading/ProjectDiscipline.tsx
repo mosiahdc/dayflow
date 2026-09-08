@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { useTradeSettingsStore } from '@/store/tradeSettingsStore';
 import { useTradeNotesStore } from '@/store/tradeNotesStore';
@@ -51,13 +52,6 @@ function phtMidnightToUtcMs(date: string): number {
   return Date.UTC(year!, month! - 1, day!, 0, 0, 0) - PHT_OFFSET_MS;
 }
 
-type MarginMode = 'Low' | 'Normal' | 'Hype' | 'Volatile';
-const MARGIN_DIVISORS: Record<MarginMode, number> = {
-  Low: 0.18,
-  Normal: 0.3,
-  Hype: 0.7,
-  Volatile: 1,
-};
 
 type TxType = 'deposit' | 'withdrawal' | 'funding_fee' | 'null_compensation';
 type ManualTxType = Exclude<TxType, 'null_compensation'>;
@@ -101,7 +95,7 @@ function PnlBadge({ pnl }: { pnl: number }) {
       }`}
     >
       {isPos ? '+' : ''}
-      {pnl.toFixed(4)}
+      {pnl.toFixed(2)}
     </span>
   );
 }
@@ -313,8 +307,6 @@ export default function ProjectDiscipline({ trades }: Props) {
   const { initialBalance, transactions, fetchSettings, addTransaction, deleteTransaction } =
     useTradeSettingsStore();
   const { getNote, setNote, fetchNotes } = useTradeNotesStore();
-  const [marginMode, setMarginMode] = useState<MarginMode>('Normal');
-  const [copied, setCopied] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const [txModal, setTxModal] = useState<ManualTxType | null>(null);
@@ -329,12 +321,9 @@ export default function ProjectDiscipline({ trades }: Props) {
     fetchNotes();
   }, [fetchSettings, fetchNotes]);
 
-  // ── Project trades (from Aug 1 2026 00:00 PHT onwards) ───────────────────
   const projectTrades = useMemo(() => trades.filter((t) => t.closeTime >= PROJECT_START), [trades]);
-
-  // ── Daily summary — ALL days including today, update immediately ───────────
-  // No waiting for day-end; as soon as a trade is imported it shows up.
   const today = todayUTC8();
+
   const dailySummary = useMemo(() => {
     const map = new Map<string, { pnl: number; count: number }>();
     for (const t of projectTrades) {
@@ -349,11 +338,8 @@ export default function ProjectDiscipline({ trades }: Props) {
       .map(([date, stats]) => ({ date, ...stats }));
   }, [projectTrades]);
 
-  // ── Project cash flow ──────────────────────────────────────────────────────
-  // Initial Balance is the account balance at the Project start (Aug 1, 2026),
-  // so only deposits/withdrawals on or after that start belong on top of it.
   const projectTransactions = useMemo(() => {
-    const projectStartUtc = new Date('2026-07-31T16:00:00.000Z').getTime(); // Aug 1 00:00 PHT
+    const projectStartUtc = new Date('2026-07-31T16:00:00.000Z').getTime();
     return transactions.filter((t) => new Date(t.createdAt).getTime() >= projectStartUtc);
   }, [transactions]);
 
@@ -375,53 +361,88 @@ export default function ProjectDiscipline({ trades }: Props) {
   );
   const txNet = depositsTotal + withdrawalsTotal + fundingFeesTotal + nullCompensationTotal;
 
-  // ── Live balance = opening balance + project cash flow + closed project PNL ─
   const projectPnl = useMemo(() => dailySummary.reduce((sum, d) => sum + d.pnl, 0), [dailySummary]);
   const balance = initialBalance + txNet + projectPnl;
 
-  // ── Weekly base = carried-forward balance at Monday 00:00 PHT ─────────────
-  // The account ledger never resets at a week boundary. Weekly Base is only a
-  // snapshot of that continuous ledger immediately BEFORE Monday 00:00 PHT.
-  // This avoids a rollover gap when there are no events exactly at midnight.
   const weekMondayDate = currentWeekMondayUTC8();
   const weekMondayTimestamp = `${weekMondayDate} 00:00:00`;
-  const weekMondayUtcMs = phtMidnightToUtcMs(weekMondayDate);
+  const currentWeekPnl = useMemo(
+    () => projectTrades.filter((t) => t.closeTime >= weekMondayTimestamp).reduce((sum, t) => sum + t.realizedPnl, 0),
+    [projectTrades, weekMondayTimestamp]
+  );
 
-  const weeklyBase = useMemo(() => {
-    const pnlBeforeWeek = projectTrades
-      .filter((t) => t.closeTime < weekMondayTimestamp)
-      .reduce((sum, t) => sum + t.realizedPnl, 0);
+  const winRate = useMemo(() => {
+    if (projectTrades.length === 0) return 0;
+    return Math.round((projectTrades.filter((t) => t.realizedPnl > 0).length / projectTrades.length) * 100);
+  }, [projectTrades]);
 
-    const cashBeforeWeek = projectTransactions
-      .filter((t) => {
-        const txMs = new Date(t.createdAt).getTime();
-        return Number.isFinite(txMs) && txMs < weekMondayUtcMs;
-      })
-      .reduce((sum, t) => sum + t.amount, 0);
+  const equityCurve = useMemo(() => {
+    const events: { ts: number; date: string; type: 'tx' | 'trade'; amount: number }[] = [];
+    const startMs = phtMidnightToUtcMs('2026-08-01');
 
-    return initialBalance + cashBeforeWeek + pnlBeforeWeek;
-  }, [initialBalance, projectTrades, projectTransactions, weekMondayTimestamp, weekMondayUtcMs]);
+    for (const tx of projectTransactions) {
+      const ts = new Date(tx.createdAt).getTime();
+      if (!Number.isFinite(ts)) continue;
+      events.push({
+        ts,
+        date: phtCalendarDate(ts),
+        type: 'tx',
+        amount: tx.amount,
+      });
+    }
 
-  // All weekly parameters derive from weeklyBase (locked for the week)
-  const weeklyMargin = weeklyBase * 0.1;
-  const weeklyTP = weeklyMargin * 0.35;
-  const weeklySL = weeklyMargin; // 100% of margin
+    for (const trade of projectTrades) {
+      const phtClose = trade.closeTime.replace(' ', 'T') + '+08:00';
+      const ts = new Date(phtClose).getTime();
+      if (!Number.isFinite(ts)) continue;
+      events.push({
+        ts,
+        date: trade.closeTime.slice(0, 10),
+        type: 'trade',
+        amount: trade.realizedPnl,
+      });
+    }
 
-  // Position margin uses LIVE balance (current buying power)
-  const positionMargin = balance > 0 ? (balance * 0.01) / MARGIN_DIVISORS[marginMode] : 0;
+    events.sort((a, b) => a.ts - b.ts || (a.type === 'tx' ? -1 : 1));
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(positionMargin.toFixed(4));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+    const points: { date: string; label: string; equity: number }[] = [];
+    let running = initialBalance;
+    let lastDate = '2026-08-01';
+    points.push({ date: lastDate, label: format(parseISO(lastDate), 'MMM d'), equity: running });
+
+    for (const event of events) {
+      running += event.amount;
+      lastDate = event.date;
+      const existing = points[points.length - 1];
+      if (existing && existing.date === event.date) {
+        existing.equity = running;
+      } else {
+        points.push({ date: event.date, label: format(parseISO(event.date), 'MMM d'), equity: running });
+      }
+    }
+
+    if (points.length === 1 && Date.now() > startMs) {
+      points.push({ date: today, label: format(parseISO(today), 'MMM d'), equity: running });
+    }
+
+    return points;
+  }, [initialBalance, projectTransactions, projectTrades, today]);
+
+  const equityPeak = useMemo(
+    () => (equityCurve.length ? Math.max(...equityCurve.map((point) => point.equity)) : balance),
+    [equityCurve, balance]
+  );
+  const equityLow = useMemo(
+    () => (equityCurve.length ? Math.min(...equityCurve.map((point) => point.equity)) : balance),
+    [equityCurve, balance]
+  );
 
   const handleTxSave = async () => {
     const amt = parseFloat(txAmount);
     if (!txModal || isNaN(amt) || amt === 0) return;
     setTxSaving(true);
     const signedAmount =
-      txModal === 'deposit' ? Math.abs(amt) : txModal === 'withdrawal' ? -Math.abs(amt) : amt; // funding_fee: user controls sign
+      txModal === 'deposit' ? Math.abs(amt) : txModal === 'withdrawal' ? -Math.abs(amt) : amt;
     await addTransaction(txModal, signedAmount, txNote.trim());
     setTxAmount('');
     setTxNote('');
@@ -429,7 +450,6 @@ export default function ProjectDiscipline({ trades }: Props) {
     setTxSaving(false);
   };
 
-  // ── Visible trades in log ─────────────────────────────────────────────────
   const visibleTrades = useMemo(() => {
     const base = selectedDate
       ? projectTrades.filter((t) => t.closeTime.slice(0, 10) === selectedDate)
@@ -445,24 +465,23 @@ export default function ProjectDiscipline({ trades }: Props) {
       <section className="df-discipline-hero">
         <div>
           <span className="df-kicker">PROJECT DISCIPLINE · SINCE AUG 1</span>
-          <h2>One account. One continuous ledger. One set of weekly rules.</h2>
-          <p>Balance, Exness cash flow, D-NULL compensation, weekly risk and execution all reconcile in the same workspace.</p>
+          <h2>Track the account like a real trading desk: balance, equity curve, and execution flow.</h2>
+          <p>Weekly parameters and position margin are removed from this screen. The focus is now balance reconciliation, equity growth, and a cleaner trading log.</p>
         </div>
         <div className="df-discipline-hero-stats">
           <div><span>Live balance</span><strong>{balance.toFixed(2)} USD</strong></div>
-          <div><span>Project P&amp;L</span><strong className={projectPnl >= 0 ? 'is-positive' : 'is-negative'}>{projectPnl >= 0 ? '+' : ''}{projectPnl.toFixed(2)}</strong></div>
-          <div><span>Week base</span><strong>{weeklyBase.toFixed(2)}</strong></div>
+          <div><span>This week P&amp;L</span><strong className={currentWeekPnl >= 0 ? 'is-positive' : 'is-negative'}>{currentWeekPnl >= 0 ? '+' : ''}{currentWeekPnl.toFixed(2)}</strong></div>
+          <div><span>Win rate</span><strong>{winRate}%</strong></div>
         </div>
       </section>
-      {/* ── Row 1: Stats ──────────────────────────────────────────────────── */}
+
       <section className="df-discipline-cockpit">
-        {/* Balance */}
         <StatBox label="Balance">
           <p
             className={`text-xl font-bold ${balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
           >
             {balance >= 0 ? '' : '-'}
-            {Math.abs(balance).toFixed(4)}
+            {Math.abs(balance).toFixed(2)}
             <span className="text-xs font-normal text-brand-muted ml-1">USD</span>
           </p>
           <div className="mt-1 space-y-0.5 text-[10px] text-brand-muted leading-relaxed">
@@ -528,93 +547,55 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
         </StatBox>
 
-        {/* Weekly Parameters — carried forward at Monday 00:00 PHT */}
-        <StatBox label="Weekly Parameters">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className="text-[10px] font-semibold text-brand-muted">Week of</span>
-            <span className="text-[10px] font-bold dark:text-white">
-              {format(parseISO(weekMondayDate), 'MMM d, yyyy')}
-            </span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent font-semibold">
-              LOCKED
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-            <div>
-              <p className="text-[10px] text-brand-muted">Weekly base (Mon 00:00 PHT)</p>
-              <p className="text-base font-bold dark:text-white">${weeklyBase.toFixed(2)}</p>
+        <StatBox label="Equity Curve" highlight>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+              <p className="text-[10px] text-brand-muted">Current equity</p>
+              <p className={`text-sm font-bold ${balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{balance >= 0 ? '+' : ''}{balance.toFixed(2)}</p>
             </div>
-            <div>
-              <p className="text-[10px] text-brand-muted">Trade margin (10%)</p>
-              <p className="text-base font-bold text-brand-accent">${weeklyMargin.toFixed(2)}</p>
+            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+              <p className="text-[10px] text-brand-muted">Peak equity</p>
+              <p className="text-sm font-bold dark:text-white">{equityPeak.toFixed(2)}</p>
             </div>
-            <div>
-              <p className="text-[10px] text-brand-muted">TP target (+35% ROE)</p>
-              <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                +${weeklyTP.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] text-brand-muted">Hard SL (−100% ROE)</p>
-              <p className="text-sm font-bold text-red-500 dark:text-red-400">
-                −${weeklySL.toFixed(2)}
-              </p>
+            <div className="rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2.5">
+              <p className="text-[10px] text-brand-muted">Net cash flow</p>
+              <p className={`text-sm font-bold ${txNet >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{txNet >= 0 ? '+' : ''}{txNet.toFixed(2)}</p>
             </div>
           </div>
-          <p className="text-[10px] text-brand-muted mt-1">
-            Carried forward from the previous week · 500× · Max 3 trades · 1-loss circuit breaker
-          </p>
-        </StatBox>
-
-        {/* Position Margin — uses live balance */}
-        <StatBox label="Position Margin" highlight>
-          <div className="flex items-center gap-2 mb-1">
-            <select
-              value={marginMode}
-              onChange={(e) => setMarginMode(e.target.value as MarginMode)}
-              className="text-xs border rounded px-2 py-1 dark:bg-gray-700 dark:text-white dark:border-gray-600 flex-1"
-            >
-              {(Object.keys(MARGIN_DIVISORS) as MarginMode[]).map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+          <div className="h-[240px] w-full rounded-xl border border-white/10 bg-black/10 dark:bg-white/[0.02] p-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={equityCurve} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.16)" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} minTickGap={16} />
+                <YAxis tick={{ fontSize: 10, fill: 'currentColor' }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => `${Number(v).toFixed(0)}`} />
+                <Tooltip
+                  formatter={(value: number) => [`${Number(value).toFixed(2)} USD`, 'Equity']}
+                  labelFormatter={(label, payload) => payload?.[0]?.payload?.date ?? String(label)}
+                  contentStyle={{ borderRadius: 12, border: '1px solid rgba(148,163,184,0.2)', background: 'rgba(9,12,20,.95)' }}
+                  labelStyle={{ color: '#cbd5e1' }}
+                />
+                <Area type="monotone" dataKey="equity" stroke="#22c55e" strokeWidth={2.5} fill="url(#equityFill)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-          <div className="flex items-center gap-2">
-            <p className="text-xl font-bold text-brand-accent flex-1 truncate">
-              {positionMargin > 0 ? positionMargin.toFixed(4) : '—'}
-              {positionMargin > 0 && (
-                <span className="text-xs font-normal text-brand-muted ml-1">USD</span>
-              )}
-            </p>
-            <button
-              onClick={handleCopy}
-              disabled={positionMargin === 0}
-              title="Copy to clipboard"
-              className={`text-xs px-2 py-1 rounded font-semibold transition-all shrink-0
-                ${copied ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-brand-muted hover:bg-brand-accent hover:text-white disabled:opacity-30 disabled:cursor-not-allowed'}`}
-            >
-              {copied ? '✓' : '⎘'}
-            </button>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-brand-muted">
+            <span>Project low: {equityLow.toFixed(2)}</span>
+            <span>{equityCurve.length} equity point{equityCurve.length !== 1 ? 's' : ''}</span>
           </div>
-          <p className="text-[10px] text-brand-muted">
-            (Live balance × 1%) ÷ {MARGIN_DIVISORS[marginMode]}
-          </p>
         </StatBox>
       </section>
 
-      {/* ── Transaction history ────────────────────────────────────────────── */}
       {showTxHistory && transactions.length > 0 && (
         <div className="df-trade-card overflow-hidden">
           <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700 flex justify-between items-center">
             <h3 className="text-xs font-semibold dark:text-white">Transaction History</h3>
-            <button
-              onClick={() => setShowTxHistory(false)}
-              className="text-brand-muted hover:text-brand-dark dark:hover:text-white text-sm"
-            >
-              ✕
-            </button>
+            <button onClick={() => setShowTxHistory(false)} className="text-brand-muted hover:text-brand-dark dark:hover:text-white text-sm">✕</button>
           </div>
           <div className="divide-y dark:divide-gray-700 max-h-56 overflow-y-auto">
             {transactions.map((tx) => {
@@ -623,29 +604,15 @@ export default function ProjectDiscipline({ trades }: Props) {
               return (
                 <div key={tx.id} className="flex items-center justify-between px-4 py-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${cfg.badgeClass}`}>
-                      {cfg.label}
-                    </span>
-                    {tx.note && (
-                      <span className="text-xs text-brand-muted truncate max-w-[140px]">
-                        {tx.note}
-                      </span>
-                    )}
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${cfg.badgeClass}`}>{cfg.label}</span>
+                    {tx.note && <span className="text-xs text-brand-muted truncate max-w-[140px]">{tx.note}</span>}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span
-                      className={`text-sm font-bold tabular-nums ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
-                    >
-                      {isPositive ? '+' : ''}
-                      {tx.amount.toFixed(4)}
+                    <span className={`text-sm font-bold tabular-nums ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {isPositive ? '+' : ''}{tx.amount.toFixed(2)}
                     </span>
                     <span className="text-[10px] text-brand-muted">{toUTC8(tx.createdAt)}</span>
-                    <button
-                      onClick={() => deleteTransaction(tx.id)}
-                      className="text-gray-300 hover:text-red-400 text-sm"
-                    >
-                      ×
-                    </button>
+                    <button onClick={() => deleteTransaction(tx.id)} className="text-gray-300 hover:text-red-400 text-sm">×</button>
                   </div>
                 </div>
               );
@@ -656,63 +623,22 @@ export default function ProjectDiscipline({ trades }: Props) {
 
       {showExnessSync && <ExnessCashflowSync onClose={() => setShowExnessSync(false)} />}
 
-      {/* ── Transaction modal ──────────────────────────────────────────────── */}
       {txModal && (
-        <div
-          className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={(e) => e.target === e.currentTarget && setTxModal(null)}
-        >
+        <div className="df-modal-backdrop fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && setTxModal(null)}>
           <div className="df-modal-panel p-5 w-full max-w-sm flex flex-col gap-3">
             <h3 className="font-bold text-sm dark:text-white">{TX_CONFIG[txModal].label}</h3>
-            {txModal === 'funding_fee' && (
-              <p className="text-xs text-brand-muted -mt-1">
-                Enter positive to receive, negative to pay (e.g. -0.012)
-              </p>
-            )}
+            {txModal === 'funding_fee' && <p className="text-xs text-brand-muted -mt-1">Enter positive to receive, negative to pay (e.g. -0.01)</p>}
             <div>
               <label className="text-xs text-brand-muted mb-1 block">Amount (USD)</label>
-              <input
-                autoFocus
-                type="number"
-                min={txModal === 'funding_fee' ? undefined : '0'}
-                step="0.0001"
-                value={txAmount}
-                onChange={(e) => setTxAmount(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleTxSave()}
-                placeholder={txModal === 'funding_fee' ? 'e.g. 0.05 or -0.012' : '0.0000'}
-                className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
+              <input autoFocus type="number" min={txModal === 'funding_fee' ? undefined : '0'} step="0.01" value={txAmount} onChange={(e) => setTxAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleTxSave()} placeholder={txModal === 'funding_fee' ? 'e.g. 0.05 or -0.01' : '0.00'} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" />
             </div>
             <div>
               <label className="text-xs text-brand-muted mb-1 block">Note (optional)</label>
-              <input
-                type="text"
-                value={txNote}
-                onChange={(e) => setTxNote(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleTxSave()}
-                placeholder={
-                  txModal === 'funding_fee'
-                    ? 'e.g. Aug 1 funding'
-                    : txModal === 'deposit'
-                      ? 'e.g. Weekly top-up'
-                      : 'e.g. Profit taking'
-                }
-                className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
+              <input type="text" value={txNote} onChange={(e) => setTxNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleTxSave()} placeholder={txModal === 'funding_fee' ? 'e.g. weekly funding' : txModal === 'deposit' ? 'e.g. weekly top-up' : 'e.g. profit taking'} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:text-white dark:border-gray-600" />
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setTxModal(null)}
-                className="flex-1 border rounded-lg py-2 text-sm dark:text-white dark:border-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleTxSave}
-                disabled={txSaving || txAmount === '' || txAmount === '0'}
-                className={`flex-1 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-50
-                  ${txModal === 'deposit' ? 'bg-green-500 hover:bg-green-600' : txModal === 'funding_fee' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'}`}
-              >
+              <button onClick={() => setTxModal(null)} className="flex-1 border rounded-lg py-2 text-sm dark:text-white dark:border-gray-600">Cancel</button>
+              <button onClick={handleTxSave} disabled={txSaving || txAmount === '' || txAmount === '0'} className={`flex-1 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-50 ${txModal === 'deposit' ? 'bg-green-500 hover:bg-green-600' : txModal === 'funding_fee' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'}`}>
                 {txSaving ? 'Saving…' : TX_CONFIG[txModal].label}
               </button>
             </div>
@@ -720,48 +646,28 @@ export default function ProjectDiscipline({ trades }: Props) {
         </div>
       )}
 
-      {/* ── Row 2: Sidebar + Trade log ─────────────────────────────────────── */}
       <div className="df-discipline-log-layout">
-        {/* Left sidebar — daily summary */}
         <div className="df-daily-summary-strip">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted px-1">
-            Daily Summary
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted px-1">Daily Summary</p>
           <div className="df-daily-summary-scroll">
             {dailySummary.length === 0 ? (
               <p className="text-xs text-brand-muted text-center py-8 px-3">No trades yet.</p>
             ) : (
-              <div
-                className="df-daily-summary-items"
-              >
+              <div className="df-daily-summary-items">
                 {dailySummary.map(({ date, pnl, count }) => {
                   const isSelected = selectedDate === date;
                   const isToday = date === today;
                   return (
-                    <button
-                      key={date}
-                      onClick={() => setSelectedDate(isSelected ? null : date)}
-                      className={`w-full text-left px-3 py-2.5 flex justify-between items-center transition-colors
-                        ${isSelected ? 'bg-brand-accent/10 dark:bg-brand-accent/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}
-                    >
+                    <button key={date} onClick={() => setSelectedDate(isSelected ? null : date)} className={`w-full text-left px-3 py-2.5 flex justify-between items-center transition-colors ${isSelected ? 'bg-brand-accent/10 dark:bg-brand-accent/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'}`}>
                       <div>
                         <div className="flex items-center gap-1">
-                          <p className="text-xs font-semibold dark:text-white">
-                            {format(parseISO(date), 'MMM d')}
-                          </p>
-                          {isToday && (
-                            <span className="text-[9px] px-1 py-0.5 rounded bg-brand-amber text-white font-bold">
-                              TODAY
-                            </span>
-                          )}
+                          <p className="text-xs font-semibold dark:text-white">{format(parseISO(date), 'MMM d')}</p>
+                          {isToday && <span className="text-[9px] px-1 py-0.5 rounded bg-brand-amber text-white font-bold">TODAY</span>}
                         </div>
                         <p className="text-[10px] text-brand-muted">{count} trades</p>
                       </div>
-                      <span
-                        className={`text-xs font-bold tabular-nums ${pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
-                      >
-                        {pnl >= 0 ? '+' : ''}
-                        {pnl.toFixed(3)}
+                      <span className={`text-xs font-bold tabular-nums ${pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                        {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
                       </span>
                     </button>
                   );
@@ -771,7 +677,6 @@ export default function ProjectDiscipline({ trades }: Props) {
           </div>
         </div>
 
-        {/* Middle — trade log */}
         <div className="df-discipline-trade-log">
           <div className="flex items-center justify-between px-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
@@ -779,21 +684,11 @@ export default function ProjectDiscipline({ trades }: Props) {
                 ? `Trade Log — ${format(parseISO(selectedDate), 'MMM d, yyyy')}${selectedDate === today ? ' (Today)' : ''}`
                 : `Project Trade Log · from ${format(parseISO(PROJECT_START.slice(0, 10)), 'MMM d, yyyy')}`}
             </p>
-            {selectedDate && (
-              <button
-                onClick={() => setSelectedDate(null)}
-                className="text-xs text-brand-accent hover:underline"
-              >
-                Show all ×
-              </button>
-            )}
+            {selectedDate && <button onClick={() => setSelectedDate(null)} className="text-xs text-brand-accent hover:underline">Show all ×</button>}
           </div>
 
           <div className="df-trade-card overflow-hidden flex-1">
-            <div
-              className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700"
-              style={{ gridTemplateColumns: '36px 1fr 72px 90px 80px 50px 100px 80px' }}
-            >
+            <div className="bg-gray-50 dark:bg-gray-700/50 px-3 py-2 grid text-xs font-semibold text-brand-muted border-b dark:border-gray-700" style={{ gridTemplateColumns: '36px 1fr 72px 98px 84px 58px 100px 80px' }}>
               <span className="text-center">#</span>
               <span>Symbol / Time</span>
               <span className="text-center">Dir</span>
@@ -810,66 +705,32 @@ export default function ProjectDiscipline({ trades }: Props) {
                 <p className="text-sm text-brand-muted">No trades for this period.</p>
               </div>
             ) : (
-              <div
-                className="divide-y dark:divide-gray-700 overflow-y-auto"
-                style={{ maxHeight: '460px' }}
-              >
+              <div className="divide-y dark:divide-gray-700 overflow-y-auto" style={{ maxHeight: '460px' }}>
                 {visibleTrades.map((trade, idx) => (
                   <div key={trade.id}>
-                    <div
-                      className="px-3 py-2 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
-                      style={{ gridTemplateColumns: '36px 1fr 72px 90px 80px 50px 100px 80px' }}
-                    >
-                    <div className="flex items-center justify-center">
-                      <span className="text-xs font-bold text-brand-muted tabular-nums">
-                        {visibleTrades.length - idx}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
-                        {(trade.orderCount ?? 1) > 1 && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedTradeId((current) =>
-                                current === trade.id ? null : trade.id
-                              )
-                            }
-                            className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 shrink-0 flex items-center gap-1"
-                            title="Show all underlying Exness orders"
-                          >
-                            {trade.orderCount} orders
-                            <span className="text-[8px]">
-                              {expandedTradeId === trade.id ? '▲' : '▼'}
-                            </span>
-                          </button>
-                        )}
+                    <div className="px-3 py-2 grid items-center hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors" style={{ gridTemplateColumns: '36px 1fr 72px 98px 84px 58px 100px 80px' }}>
+                      <div className="flex items-center justify-center"><span className="text-xs font-bold text-brand-muted tabular-nums">{visibleTrades.length - idx}</span></div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="text-sm font-bold dark:text-white truncate">{trade.futures}</p>
+                          {(trade.orderCount ?? 1) > 1 && (
+                            <button type="button" onClick={() => setExpandedTradeId((current) => current === trade.id ? null : trade.id)} className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-brand-accent/10 text-brand-accent hover:bg-brand-accent/20 shrink-0 flex items-center gap-1" title="Show all underlying Exness orders">
+                              {trade.orderCount} orders
+                              <span className="text-[8px]">{expandedTradeId === trade.id ? '▲' : '▼'}</span>
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-brand-muted tabular-nums">{trade.openTime ? trade.openTime.slice(0, 16) : '—'}{trade.closeTime ? ` → ${trade.closeTime.slice(11, 16)}` : ''}</p>
                       </div>
-                      <p className="text-[10px] text-brand-muted tabular-nums">
-                        {trade.openTime ? trade.openTime.slice(0, 16) : '—'}
-                        {trade.closeTime ? ` → ${trade.closeTime.slice(11, 16)}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex justify-center">
-                      <DirectionBadge direction={trade.direction} />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs dark:text-white">{trade.avgEntryPrice.toFixed(2)}</p>
-                      <p className="text-[10px] text-brand-muted">
-                        {trade.avgClosePrice.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="flex justify-end">
-                      <PnlBadge pnl={trade.realizedPnl} />
-                    </div>
-                    <div className="text-right text-xs dark:text-white">{trade.closingQty}</div>
-                    <div className="flex justify-center px-1">
-                      <NotesCell tradeId={trade.id} getNote={getNote} setNote={setNote} />
-                    </div>
-                    <div className="flex justify-center">
-                      <VideoCell tradeId={trade.id} getNote={getNote} setNote={setNote} />
-                    </div>
+                      <div className="flex justify-center"><DirectionBadge direction={trade.direction} /></div>
+                      <div className="text-right">
+                        <p className="text-xs dark:text-white">{trade.avgEntryPrice.toFixed(2)}</p>
+                        <p className="text-[10px] text-brand-muted">{trade.avgClosePrice.toFixed(2)}</p>
+                      </div>
+                      <div className="flex justify-end"><PnlBadge pnl={trade.realizedPnl} /></div>
+                      <div className="text-right text-xs dark:text-white">{trade.closingQty.toFixed(2)}</div>
+                      <div className="flex justify-center px-1"><NotesCell tradeId={trade.id} getNote={getNote} setNote={setNote} /></div>
+                      <div className="flex justify-center"><VideoCell tradeId={trade.id} getNote={getNote} setNote={setNote} /></div>
                     </div>
                     {expandedTradeId === trade.id && <TradeOrdersDropdown trade={trade} />}
                   </div>
@@ -880,24 +741,9 @@ export default function ProjectDiscipline({ trades }: Props) {
 
           {visibleTrades.length > 0 && (
             <div className="flex gap-4 px-1 text-xs text-brand-muted flex-wrap">
-              <span>
-                {visibleTrades.length} trade{visibleTrades.length !== 1 ? 's' : ''}
-              </span>
-              <span>
-                Net:{' '}
-                <span
-                  className={`font-bold ${visiblePnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
-                >
-                  {visiblePnl >= 0 ? '+' : ''}
-                  {visiblePnl.toFixed(4)} USD
-                </span>
-              </span>
-              <span>
-                Win rate:{' '}
-                <span className="font-bold dark:text-white">
-                  {Math.round((visibleWins / visibleTrades.length) * 100)}%
-                </span>
-              </span>
+              <span>{visibleTrades.length} trade{visibleTrades.length !== 1 ? 's' : ''}</span>
+              <span>Net: <span className={`font-bold ${visiblePnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>{visiblePnl >= 0 ? '+' : ''}{visiblePnl.toFixed(2)} USD</span></span>
+              <span>Win rate: <span className="font-bold dark:text-white">{Math.round((visibleWins / visibleTrades.length) * 100)}%</span></span>
             </div>
           )}
         </div>

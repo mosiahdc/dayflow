@@ -96,7 +96,7 @@ function PnlBadge({ pnl }: { pnl: number }) {
         }`}
     >
       {isPos ? '+' : ''}
-      {pnl.toFixed(4)}
+      {pnl.toFixed(2)}
     </span>
   );
 }
@@ -465,7 +465,7 @@ export default function TradeList({ trades }: Props) {
                 </div>
 
                 {/* Qty */}
-                <div className="text-right text-xs dark:text-white">{trade.closingQty}</div>
+                <div className="text-right text-xs dark:text-white">{trade.closingQty.toFixed(2)}</div>
 
                 {/* Status */}
                 <div className="text-right text-[10px] text-brand-muted truncate">

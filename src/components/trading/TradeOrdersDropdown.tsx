@@ -30,7 +30,7 @@ export default function TradeOrdersDropdown({ trade }: Props) {
             className={`font-bold ${trade.realizedPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
           >
             {trade.realizedPnl >= 0 ? '+' : ''}
-            {trade.realizedPnl.toFixed(4)}
+            {trade.realizedPnl.toFixed(2)}
           </span>
         </p>
       </div>
@@ -64,9 +64,9 @@ export default function TradeOrdersDropdown({ trade }: Props) {
                 </span>
                 <span className="text-brand-muted tabular-nums">{compactTime(order.openTime)}</span>
                 <span className="text-brand-muted tabular-nums">{compactTime(order.closeTime)}</span>
-                <span className="text-right tabular-nums">{order.closingQty}</span>
-                <span className="text-right tabular-nums">{order.avgEntryPrice.toFixed(3)}</span>
-                <span className="text-right tabular-nums">{order.avgClosePrice.toFixed(3)}</span>
+                <span className="text-right tabular-nums">{order.closingQty.toFixed(2)}</span>
+                <span className="text-right tabular-nums">{order.avgEntryPrice.toFixed(2)}</span>
+                <span className="text-right tabular-nums">{order.avgClosePrice.toFixed(2)}</span>
                 <span
                   className={`text-right font-bold tabular-nums ${order.realizedPnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
                 >

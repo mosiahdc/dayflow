@@ -561,7 +561,7 @@ export default function TradeJournal() {
                   <span
                     className={`text-xs font-bold tabular-nums w-20 text-left ${pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}
                   >
-                    {pnl !== 0 ? `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(4)}` : '—'}
+                    {pnl !== 0 ? `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : '—'}
                   </span>
                   {a?.grade && (
                     <span
